@@ -1,0 +1,14 @@
+Package: QuantLibGauss
+Title: Tidy Interface to QuantLib for Quantitative Finance
+Version: 0.0.0.9000
+Authors@R: person("Eiichi", "Horigome", email = "besuke.poripori@outlook.com", role = c("aut", "cre"))
+Description: Provides tidy R interfaces and educational wrappers for QuantLib-based fixed income, derivatives, and risk modeling.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+Imports:
+    tibble,
+    dplyr,
+    purrr,
+    lubridate
+Config/roxygen2/version: 8.0.0
