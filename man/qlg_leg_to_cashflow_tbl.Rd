@@ -2,10 +2,10 @@
 % Please edit documentation in R/cashflows.R
 \name{qlg_leg_to_cashflow_tbl}
 \alias{qlg_leg_to_cashflow_tbl}
-\title{Convert QuantLib leg to cashflow table}
+\title{Leg to Cashflow Table}
 \usage{
 qlg_leg_to_cashflow_tbl(leg)
 }
 \description{
-Convert QuantLib leg to cashflow table
+Leg to Cashflow Table
 }
