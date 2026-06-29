@@ -2,7 +2,7 @@
 % Please edit documentation in R/bond_analytics.R
 \name{qlg_bond_price_yield_curve}
 \alias{qlg_bond_price_yield_curve}
-\title{Bond Summary}
+\title{Bond Price-Yield Curve}
 \usage{
 qlg_bond_price_yield_curve(
   bond,
@@ -15,5 +15,5 @@ qlg_bond_price_yield_curve(
 )
 }
 \description{
-Bond Summary
+Bond Price-Yield Curve
 }

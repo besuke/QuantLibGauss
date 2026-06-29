@@ -4,12 +4,12 @@
 \alias{qlg_bond_coupon_info}
 \title{Get bond coupon information}
 \usage{
-qlg_bond_coupon_info(bond, as_of = qlg_get_eval_date())
+qlg_bond_coupon_info(bond, as_of = qlg_eval_date_get())
 }
 \arguments{
 \item{bond}{A QuantLib bond object.}
 
-\item{as_of}{Evaluation date. Default is qlg_get_eval_date().}
+\item{as_of}{Evaluation date. Default is  qlg_eval_date_get().}
 }
 \value{
 A tibble with coupon cashflow information.

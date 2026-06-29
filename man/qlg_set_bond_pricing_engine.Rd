@@ -2,7 +2,7 @@
 % Please edit documentation in R/bond_analytics.R
 \name{qlg_set_bond_pricing_engine}
 \alias{qlg_set_bond_pricing_engine}
-\title{Create a zero coupon bond}
+\title{Set Bond Pricing Engine}
 \usage{
 qlg_set_bond_pricing_engine(bond, curve)
 }
@@ -15,5 +15,5 @@ qlg_set_bond_pricing_engine(bond, curve)
 Bond with pricing engine.
 }
 \description{
-Create a zero coupon bond
+Set Bond Pricing Engine
 }

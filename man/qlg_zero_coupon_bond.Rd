@@ -2,7 +2,7 @@
 % Please edit documentation in R/bond_analytics.R
 \name{qlg_zero_coupon_bond}
 \alias{qlg_zero_coupon_bond}
-\title{Get bond coupon information}
+\title{Create a zero coupon bond}
 \usage{
 qlg_zero_coupon_bond(
   discount_curve,
@@ -11,14 +11,6 @@ qlg_zero_coupon_bond(
   face = 100
 )
 }
-\arguments{
-\item{bond}{A QuantLib bond object.}
-
-\item{as_of}{Evaluation date. Default is qlg_get_eval_date().}
-}
-\value{
-A tibble with coupon cashflow information.
-}
 \description{
-Get bond coupon information
+Create a zero coupon bond
 }

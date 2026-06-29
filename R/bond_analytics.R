@@ -1,50 +1,14 @@
-
-#' QuantLib Date
-#' @export
-qlg_date <- function(x) {
-  DateParser_parseISO(x)
-}
-
-#' Quote Handle
-#' @export
-qlg_quote_handle <- function(x) {
-  QuoteHandle(SimpleQuote(x))
-}
-
-#' Push Rate Helpers
-#' @export
-qlg_push_helpers <- function(x) {
-  vec <- RateHelperVector()
-  purrr::walk(x, ~ RateHelperVector_push_back(vec, .x))
-  vec
-}
-
-#' Set QuantLib Evaluation Date
-#' @export
-qlg_set_eval_date <- function(date) {
-  Settings_setEvaluationDate(
-    Settings_instance(),
-    qlg_date(date)
-  )
-
-  invisible(NULL)
-}
-
-#' Get QuantLib Evaluation Date
-#' @export
-qlg_get_eval_date <- function() {
-  Date_ISO(Settings_getEvaluationDate(Settings_instance()))
-}
+# bond_analytics.R
 
 
 #' Create Fixed Rate Bond
 #' @export
 qlg_fixed_rate_bond <- function(
-    issue_date = "2007-05-15",
-    maturity_date = "2017-05-15",
-    coupon_rate = 0.045,
-    face_amount = 100,
-    settlement_days = 3
+  issue_date = "2007-05-15",
+  maturity_date = "2017-05-15",
+  coupon_rate = 0.045,
+  face_amount = 100,
+  settlement_days = 3
 ) {
   schedule <- Schedule(
     qlg_date(issue_date),
@@ -68,49 +32,6 @@ qlg_fixed_rate_bond <- function(
     qlg_date(issue_date)
   )
 }
-#' Create a zero coupon bond
-#'
-#' @export
-# qlg_zero_coupon_bond <- function(
-#     discount_curve,
-#     maturity = "2013-08-15",
-#     issue = "2008-08-15",
-#     face = 100
-# ) {
-#
-#   calendar <- QuantLib::UnitedStates("GovernmentBond")
-#
-#   issueDate <- qlg_date(issue)
-#
-#   maturityDate <- qlg_date(maturity)
-#
-#   settlementDays <- 3
-#
-#   redemption <- 100
-#
-#   bond <- QuantLib::ZeroCouponBond(
-#     settlementDays,
-#     calendar,
-#     face,
-#     maturityDate,
-#     "Following",
-#     redemption,
-#     issueDate
-#   )
-#
-#   engine <- QuantLib::DiscountingBondEngine(
-#     QuantLib::YieldTermStructureHandle(
-#       discount_curve
-#     )
-#   )
-#
-#   QuantLib::Instrument_setPricingEngine(
-#     bond,
-#     engine
-#   )
-#
-#   bond
-# }
 
 #' Set Bond Pricing Engine
 #'
@@ -120,7 +41,6 @@ qlg_fixed_rate_bond <- function(
 #' @return Bond with pricing engine.
 #' @export
 qlg_set_bond_pricing_engine <- function(bond, curve) {
-
   discounting_term_structure <- RelinkableYieldTermStructureHandle()
 
   invisible(
@@ -143,10 +63,10 @@ qlg_set_bond_pricing_engine <- function(bond, curve) {
 #' Bond Yield
 #' @export
 qlg_bond_yield <- function(
-    bond,
-    day_counter = Actual365Fixed(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  day_counter = Actual365Fixed(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   Bond_yield(
     bond,
@@ -159,11 +79,11 @@ qlg_bond_yield <- function(
 #' Bond Duration
 #' @export
 qlg_bond_duration <- function(
-    bond,
-    ytm = NULL,
-    day_counter = Actual365Fixed(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  ytm = NULL,
+  day_counter = Actual365Fixed(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   if (is.null(ytm)) {
     ytm <- qlg_bond_yield(bond, day_counter, compounding, frequency)
@@ -181,11 +101,11 @@ qlg_bond_duration <- function(
 #' Bond Convexity
 #' @export
 qlg_bond_convexity <- function(
-    bond,
-    ytm = NULL,
-    day_counter = Actual365Fixed(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  ytm = NULL,
+  day_counter = Actual365Fixed(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   if (is.null(ytm)) {
     ytm <- qlg_bond_yield(bond, day_counter, compounding, frequency)
@@ -221,54 +141,18 @@ qlg_bond_example <- function() {
     summary = qlg_bond_summary(bond)
   )
 }
-#' Bond Summary
-#'
-#' @export
-# qlg_bond_summary <- function(bond) {
-#
-#   ytm  <- qlg_bond_yield(bond)
-#   dur  <- qlg_bond_duration(bond, ytm)
-#   conv <- qlg_bond_convexity(bond, ytm)
-#   dv01 <- qlg_bond_dv01(bond, ytm)
-#   pv01 <- qlg_bond_pv01(bond, ytm)
-#
-#   tibble::tibble(
-#     item = c(
-#       "NPV",
-#       "Clean Price",
-#       "Dirty Price",
-#       "Accrued Amount",
-#       "Yield",
-#       "Duration",
-#       "Convexity",
-#       "DV01",
-#       "PV01"
-#     ),
-#     value = c(
-#       Instrument_NPV(bond),
-#       Bond_cleanPrice(bond),
-#       Bond_dirtyPrice(bond),
-#       Bond_accruedAmount(bond),
-#       ytm,
-#       dur,
-#       conv,
-#       dv01,
-#       pv01
-#     )
-#   )
-# }
 
 #' Bond Price-Yield Curve
 #'
 #' @export
 qlg_bond_price_yield_curve <- function(
-    bond,
-    ytm_center = NULL,
-    spread = 0.02,
-    n = 41,
-    day_counter = Actual360(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  ytm_center = NULL,
+  spread = 0.02,
+  n = 41,
+  day_counter = Actual360(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   if (is.null(ytm_center)) {
     ytm_center <- qlg_bond_yield(
@@ -281,7 +165,7 @@ qlg_bond_price_yield_curve <- function(
 
   ytm <- seq(
     from = ytm_center - spread,
-    to   = ytm_center + spread,
+    to = ytm_center + spread,
     length.out = n
   )
 
@@ -305,12 +189,12 @@ qlg_bond_price_yield_curve <- function(
 #'
 #' @export
 qlg_bond_price_from_yield <- function(
-    bond,
-    ytm,
-    day_counter = Actual360(),
-    compounding = "Compounded",
-    frequency = "Annual",
-    settlement_date = NULL
+  bond,
+  ytm,
+  day_counter = Actual360(),
+  compounding = "Compounded",
+  frequency = "Annual",
+  settlement_date = NULL
 ) {
   if (is.null(settlement_date)) {
     Bond_cleanPrice(
@@ -336,12 +220,12 @@ qlg_bond_price_from_yield <- function(
 #'
 #' @export
 qlg_bond_yield_from_price <- function(
-    bond,
-    clean_price,
-    day_counter = Actual360(),
-    compounding = "Compounded",
-    frequency = "Annual",
-    settlement_date = NULL
+  bond,
+  clean_price,
+  day_counter = Actual360(),
+  compounding = "Compounded",
+  frequency = "Annual",
+  settlement_date = NULL
 ) {
   price <- BondPrice(
     clean_price,
@@ -367,55 +251,18 @@ qlg_bond_yield_from_price <- function(
     )
   }
 }
-#' Bond Price from Yield
-#'
-#' @export
-# qlg_bond_price_from_yield <- function(
-#     bond,
-#     ytm,
-#     day_counter = Actual360(),
-#     compounding = "Compounded",
-#     frequency = "Annual"
-# ) {
-#   Bond_cleanPrice(
-#     bond,
-#     ytm,
-#     day_counter,
-#     compounding,
-#     frequency
-#   )
-# }
-
-#' Bond Yield from Clean Price
-#'
-#' @export
-# qlg_bond_yield_from_price <- function(
-#     bond,
-#     clean_price,
-#     day_counter = Actual360(),
-#     compounding = "Compounded",
-#     frequency = "Annual"
-# ) {
-#   Bond_yield(
-#     bond,
-#     BondPrice(clean_price, BondPrice_Clean_get()),
-#     day_counter,
-#     compounding,
-#     frequency
-#   )
-# }
 #' Bond DV01
 #'
 #' Dollar value of 1bp yield change.
 #'
 #' @export
 qlg_bond_dv01 <- function(
-    bond,
-    ytm = NULL,
-    bp = 1e-4,
-    day_counter = Actual360(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  ytm = NULL,
+  bp = 1e-4,
+  day_counter = Actual360(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   if (is.null(ytm)) {
     ytm <- qlg_bond_yield(bond, day_counter, compounding, frequency)
@@ -438,12 +285,12 @@ qlg_bond_dv01 <- function(
 #'
 #' @export
 qlg_bond_pv01 <- function(
-    bond,
-    ytm = NULL,
-    bp = 1e-4,
-    day_counter = Actual360(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  ytm = NULL,
+  bp = 1e-4,
+  day_counter = Actual360(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   qlg_bond_dv01(
     bond,
@@ -455,26 +302,6 @@ qlg_bond_pv01 <- function(
   )
 }
 
-#' Bond Cashflow Table
-#'
-#' @export
-# qlg_bond_cashflow_table <- function(bond) {
-#   cf <- Bond_cashflows(bond)
-#
-#   n <- CashFlowVector_size(cf)
-#
-#   tibble::tibble(
-#     index = seq_len(n),
-#     date = purrr::map_chr(
-#       seq_len(n),
-#       ~ Date_ISO(CashFlow_date(CashFlowVector_at(cf, .x - 1)))
-#     ),
-#     amount = purrr::map_dbl(
-#       seq_len(n),
-#       ~ CashFlow_amount(CashFlowVector_at(cf, .x - 1))
-#     )
-#   )
-# }
 
 #' Bond Cashflow Table
 #'
@@ -483,61 +310,6 @@ qlg_bond_cashflow_table <- function(bond) {
   qlg_leg_to_cashflow_tbl(Bond_cashflows(bond))
 }
 
-#' Get bond coupon information
-#'
-#' @param bond A QuantLib bond object.
-#' @param as_of Evaluation date. Default is qlg_get_eval_date().
-#'
-#' @return A tibble with coupon cashflow information.
-#'
-#' @export
-# qlg_bond_coupon_info <- function(bond, as_of = qlg_get_eval_date()) {
-#   requireNamespace("dplyr", quietly = TRUE)
-#   requireNamespace("tibble", quietly = TRUE)
-#
-#   cf <- qlg_bond_cashflow_table(bond)
-#
-#   if (!"date" %in% names(cf)) {
-#     stop("qlg_bond_cashflow_table() must return a column named 'date'.")
-#   }
-#
-#   if (!"amount" %in% names(cf)) {
-#     stop("qlg_bond_cashflow_table() must return a column named 'amount'.")
-#   }
-#
-#   as_of <- as.Date(as_of)
-#
-#   cf <- tibble::as_tibble(cf) |>
-#     dplyr::mutate(
-#       date = as.Date(.data$date),
-#       amount = as.numeric(.data$amount),
-#       is_future = .data$date > as_of
-#     )
-#
-#   # Redemption/principal を除き、coupon cashflow だけを推定する
-#   if ("type" %in% names(cf)) {
-#     coupons <- cf |>
-#       dplyr::filter(
-#         !grepl("redemption|principal|notional", .data$type, ignore.case = TRUE)
-#       )
-#   } else {
-#     # type 列がない場合は、最大金額を元本償還とみなして除外する簡易版
-#     max_amount <- max(abs(cf$amount), na.rm = TRUE)
-#
-#     coupons <- cf |>
-#       dplyr::filter(abs(.data$amount) < max_amount)
-#   }
-#
-#   coupons <- coupons |>
-#     dplyr::arrange(.data$date) |>
-#     dplyr::mutate(
-#       coupon_no = dplyr::row_number(),
-#       is_previous_coupon = .data$date == max(.data$date[.data$date <= as_of], na.rm = TRUE),
-#       is_next_coupon = .data$date == min(.data$date[.data$date > as_of], na.rm = TRUE)
-#     )
-#
-#   coupons
-# }
 #' Create a zero coupon bond
 #'
 #' @export
@@ -547,7 +319,6 @@ qlg_zero_coupon_bond <- function(
     issue = "2008-08-15",
     face = 100
 ) {
-
   calendar <- QuantLib::UnitedStates("GovernmentBond")
 
   issueDate <- qlg_date(issue)
@@ -585,12 +356,12 @@ qlg_zero_coupon_bond <- function(
 #' Get bond coupon information
 #'
 #' @param bond A QuantLib bond object.
-#' @param as_of Evaluation date. Default is qlg_get_eval_date().
+#' @param as_of Evaluation date. Default is  qlg_eval_date_get().
 #'
 #' @return A tibble with coupon cashflow information.
 #'
 #' @export
-qlg_bond_coupon_info <- function(bond, as_of = qlg_get_eval_date()) {
+qlg_bond_coupon_info <- function(bond, as_of = qlg_eval_date_get()) {
   requireNamespace("dplyr", quietly = TRUE)
   requireNamespace("tibble", quietly = TRUE)
 
@@ -658,7 +429,7 @@ qlg_bond_coupon_info <- function(bond, as_of = qlg_get_eval_date()) {
 #'
 #' @export
 #'
-qlg_bond_settlement_info <- function(bond, as_of = qlg_get_eval_date()) {
+qlg_bond_settlement_info <- function(bond, as_of = qlg_eval_date_get()) {
   requireNamespace("tibble", quietly = TRUE)
   requireNamespace("dplyr", quietly = TRUE)
 
@@ -768,12 +539,12 @@ qlg_ql_date_to_r_date <- function(x) {
 #'
 #' @export
 qlg_bond_sensitivity_table <- function(
-    bond,
-    ytm = NULL,
-    shifts_bp = c(-100, -50, -25, -10, -1, 0, 1, 10, 25, 50, 100),
-    day_counter = Actual365Fixed(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  ytm = NULL,
+  shifts_bp = c(-100, -50, -25, -10, -1, 0, 1, 10, 25, 50, 100),
+  day_counter = Actual365Fixed(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   requireNamespace("tibble", quietly = TRUE)
   requireNamespace("dplyr", quietly = TRUE)
@@ -836,13 +607,13 @@ qlg_bond_sensitivity_table <- function(
 #'
 #' @export
 qlg_bond_zspread <- function(
-    bond,
-    discount_curve,
-    clean_price = NULL,
-    day_counter = Actual365Fixed(),
-    compounding = "Compounded",
-    frequency = "Annual",
-    settlement_date = NULL
+  bond,
+  discount_curve,
+  clean_price = NULL,
+  day_counter = Actual365Fixed(),
+  compounding = "Compounded",
+  frequency = "Annual",
+  settlement_date = NULL
 ) {
   if (!exists("BondFunctions_zSpread", mode = "function")) {
     stop("BondFunctions_zSpread() is not available in this QuantLib build.")
@@ -930,178 +701,6 @@ qlg_bond_zspread <- function(
   as.numeric(out)
 }
 
-# Internal helper: make yield term structure handle
-# qlg_yts_handle <- function(curve) {
-#   tryCatch(
-#     YieldTermStructureHandle(curve),
-#     error = function(e) curve
-#   )
-# }
-#
-
-# Internal helper: build AssetSwap
-# qlg_make_asset_swap <- function(
-#     bond,
-#     discount_curve,
-#     ibor_index,
-#     clean_price = NULL,
-#     spread = 0,
-#     pay_fixed_rate = TRUE,
-#     par_asset_swap = TRUE,
-#     floating_schedule = NULL,
-#     floating_day_counter = Actual360()
-# ) {
-#   if (is.null(clean_price)) {
-#     clean_price <- Bond_cleanPrice(bond)
-#   }
-#
-#   if (!exists("AssetSwap", mode = "function")) {
-#     stop("AssetSwap() is not available in this QuantLib build.")
-#   }
-#
-#   asw <- if (is.null(floating_schedule)) {
-#     AssetSwap(
-#       pay_fixed_rate,
-#       bond,
-#       as.numeric(clean_price),
-#       ibor_index,
-#       as.numeric(spread)
-#     )
-#   } else {
-#     AssetSwap(
-#       pay_fixed_rate,
-#       bond,
-#       as.numeric(clean_price),
-#       ibor_index,
-#       as.numeric(spread),
-#       floating_schedule,
-#       floating_day_counter,
-#       par_asset_swap
-#     )
-#   }
-#
-#   engine <- DiscountingSwapEngine(
-#     qlg_yts_handle(discount_curve)
-#   )
-#
-#   invisible(
-#     tryCatch(
-#       Instrument_setPricingEngine(asw, engine),
-#       error = function(e1) {
-#         tryCatch(
-#           asw$setPricingEngine(engine),
-#           error = function(e2) {
-#             stop(
-#               "Failed to set pricing engine for AssetSwap. ",
-#               conditionMessage(e1)
-#             )
-#           }
-#         )
-#       }
-#     )
-#   )
-#
-#   asw
-# }
-
-
-#' Asset swap spread
-#'
-#' @param bond A QuantLib bond object.
-#' @param discount_curve A QuantLib yield term structure.
-#' @param ibor_index A QuantLib Ibor index.
-#' @param clean_price Clean price. If NULL, Bond_cleanPrice(bond) is used.
-#' @param spread Initial spread.
-#' @param pay_fixed_rate Logical. Whether the asset swap pays fixed bond coupons.
-#' @param par_asset_swap Logical. Whether to build a par asset swap.
-#' @param floating_schedule Optional floating leg schedule.
-#' @param floating_day_counter Floating leg day counter.
-#'
-#' @return Fair asset swap spread as numeric.
-#'
-#' @export
-# qlg_asset_swap_spread <- function(
-#     bond,
-#     discount_curve,
-#     ibor_index,
-#     clean_price = NULL,
-#     spread = 0,
-#     pay_fixed_rate = TRUE,
-#     par_asset_swap = TRUE,
-#     floating_schedule = NULL,
-#     floating_day_counter = Actual360()
-# ) {
-#   asw <- qlg_make_asset_swap(
-#     bond = bond,
-#     discount_curve = discount_curve,
-#     ibor_index = ibor_index,
-#     clean_price = clean_price,
-#     spread = spread,
-#     pay_fixed_rate = pay_fixed_rate,
-#     par_asset_swap = par_asset_swap,
-#     floating_schedule = floating_schedule,
-#     floating_day_counter = floating_day_counter
-#   )
-#
-#   out <- tryCatch(
-#     AssetSwap_fairSpread(asw),
-#     error = function(e1) {
-#       tryCatch(
-#         asw$fairSpread(),
-#         error = function(e2) {
-#           stop(
-#             "fairSpread() is not available for this AssetSwap object. ",
-#             conditionMessage(e1)
-#           )
-#         }
-#       )
-#     }
-#   )
-#
-#   as.numeric(out)
-# }
-# Internal helper: convert tenor-like string to QuantLib Period
-# qlg_period <- function(x) {
-#   x0 <- as.character(x)
-#   x1 <- toupper(x0)
-#
-#   switch(
-#     x1,
-#     "1Y" = Period("Annual"),
-#     "12M" = Period("Annual"),
-#     "6M" = Period("Semiannual"),
-#     "3M" = Period("Quarterly"),
-#     "1M" = Period("Monthly"),
-#     "1W" = Period("Weekly"),
-#     "ANNUAL" = Period("Annual"),
-#     "SEMIANNUAL" = Period("Semiannual"),
-#     "QUARTERLY" = Period("Quarterly"),
-#     "MONTHLY" = Period("Monthly"),
-#     "WEEKLY" = Period("Weekly"),
-#     stop("Unsupported period: ", x0)
-#   )
-# }
-# Internal helper: build USD Libor index
-# qlg_usd_libor_index <- function(
-#     tenor = "6M",
-#     forecast_curve
-# ) {
-#   USDLibor(
-#     qlg_period(tenor),
-#     YieldTermStructureHandle(forecast_curve)
-#   )
-# }
-# # Internal helper: build USD Libor index
-# qlg_usd_libor_index <- function(
-#     tenor = "6M",
-#     forecast_curve
-# ) {
-#   USDLibor(
-#     qlg_period(tenor),
-#     YieldTermStructureHandle(forecast_curve)
-#   )
-# }
-
 
 #' Bond Summary
 #'
@@ -1115,11 +714,11 @@ qlg_bond_zspread <- function(
 #'
 #' @export
 qlg_bond_summary <- function(
-    bond,
-    discount_curve = NULL,
-    day_counter = Actual365Fixed(),
-    compounding = "Compounded",
-    frequency = "Annual"
+  bond,
+  discount_curve = NULL,
+  day_counter = Actual365Fixed(),
+  compounding = "Compounded",
+  frequency = "Annual"
 ) {
   requireNamespace("tibble", quietly = TRUE)
 

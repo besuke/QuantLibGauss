@@ -2,7 +2,7 @@
 % Please edit documentation in R/bond_analytics.R
 \name{qlg_bond_dv01}
 \alias{qlg_bond_dv01}
-\title{Bond Price from Yield}
+\title{Bond DV01}
 \usage{
 qlg_bond_dv01(
   bond,
@@ -14,5 +14,5 @@ qlg_bond_dv01(
 )
 }
 \description{
-Bond Price from Yield
+Dollar value of 1bp yield change.
 }

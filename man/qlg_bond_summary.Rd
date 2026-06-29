@@ -2,7 +2,7 @@
 % Please edit documentation in R/bond_analytics.R
 \name{qlg_bond_summary}
 \alias{qlg_bond_summary}
-\title{Asset swap spread}
+\title{Bond Summary}
 \usage{
 qlg_bond_summary(
   bond,
@@ -22,26 +22,10 @@ qlg_bond_summary(
 \item{compounding}{Compounding convention.}
 
 \item{frequency}{Payment frequency.}
-
-\item{ibor_index}{A QuantLib Ibor index.}
-
-\item{clean_price}{Clean price. If NULL, Bond_cleanPrice(bond) is used.}
-
-\item{spread}{Initial spread.}
-
-\item{pay_fixed_rate}{Logical. Whether the asset swap pays fixed bond coupons.}
-
-\item{par_asset_swap}{Logical. Whether to build a par asset swap.}
-
-\item{floating_schedule}{Optional floating leg schedule.}
-
-\item{floating_day_counter}{Floating leg day counter.}
 }
 \value{
-Fair asset swap spread as numeric.
-
 A tibble with bond summary information.
 }
 \description{
-Asset swap spread
+Bond Summary
 }

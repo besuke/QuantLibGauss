@@ -4,7 +4,7 @@
 \alias{qlg_bond_settlement_info}
 \title{Get bond settlement information}
 \usage{
-qlg_bond_settlement_info(bond, as_of = qlg_get_eval_date())
+qlg_bond_settlement_info(bond, as_of = qlg_eval_date_get())
 }
 \description{
 Get bond settlement information
