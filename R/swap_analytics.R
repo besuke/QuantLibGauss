@@ -110,6 +110,9 @@ qlg_ois_overnight_leg_table <- function(swap) {
 #' Run OIS cashflow example
 #'
 #' @export
+#' Run OIS cashflow example
+#'
+#' @export
 qlg_ois_cashflow_example <- function() {
   qlg_use_quantlib()
   requireNamespace("tibble", quietly = TRUE)
@@ -158,10 +161,141 @@ qlg_ois_cashflow_example <- function() {
 
   swap <- QuantLib::MakeOIS_makeOIS(swap_builder)
 
+  fixed_leg <- qlg_swap_fixed_leg_table(swap)
+  overnight_leg <- qlg_ois_overnight_leg_table(swap)
+
   list(
     today = QuantLib::Date_ISO(today),
     settlement_date = QuantLib::Date_ISO(settlement_date),
-    fixed_leg = qlg_swap_fixed_leg_table(swap),
-    overnight_leg = qlg_ois_overnight_leg_table(swap)
+    fixed_leg = fixed_leg,
+    overnight_leg = overnight_leg,
+    summary = qlg_ois_summary(
+      fixed_leg = fixed_leg,
+      overnight_leg = overnight_leg
+    )
+  )
+}
+#' Summarise OIS cashflow legs
+#'
+#' @param fixed_leg Fixed leg cashflow table.
+#' @param overnight_leg Overnight leg cashflow table.
+#'
+#' @return A tibble summarising the OIS cashflow legs.
+#' @export
+qlg_ois_summary <- function(fixed_leg, overnight_leg) {
+  requireNamespace("tibble", quietly = TRUE)
+  requireNamespace("dplyr", quietly = TRUE)
+
+  summarise_leg <- function(x, leg_name) {
+    amount_col <- intersect(
+      c("amount", "cashflow_amount", "cashflow", "Amount"),
+      names(x)
+    )
+
+    date_col <- intersect(
+      c("date", "payment_date", "pay_date", "Date"),
+      names(x)
+    )
+
+    total_amount <- if (length(amount_col) > 0) {
+      sum(as.numeric(x[[amount_col[1]]]), na.rm = TRUE)
+    } else {
+      NA_real_
+    }
+
+    first_date <- if (length(date_col) > 0 && nrow(x) > 0) {
+      suppressWarnings(min(as.Date(as.character(x[[date_col[1]]])), na.rm = TRUE))
+    } else {
+      as.Date(NA)
+    }
+
+    last_date <- if (length(date_col) > 0 && nrow(x) > 0) {
+      suppressWarnings(max(as.Date(as.character(x[[date_col[1]]])), na.rm = TRUE))
+    } else {
+      as.Date(NA)
+    }
+
+    tibble::tibble(
+      leg = leg_name,
+      cashflow_count = nrow(x),
+      first_payment_date = first_date,
+      last_payment_date = last_date,
+      total_amount = total_amount
+    )
+  }
+
+  dplyr::bind_rows(
+    summarise_leg(fixed_leg, "fixed_leg"),
+    summarise_leg(overnight_leg, "overnight_leg")
+  )
+}
+#' Summarise OIS cashflow legs
+#'
+#' @param fixed_leg Fixed leg cashflow table.
+#' @param overnight_leg Overnight leg cashflow table.
+#'
+#' @return A tibble summarising OIS cashflow legs.
+#' @export
+qlg_ois_summary <- function(fixed_leg, overnight_leg) {
+  requireNamespace("tibble", quietly = TRUE)
+  requireNamespace("dplyr", quietly = TRUE)
+
+  pick_col <- function(x, candidates) {
+    hit <- intersect(candidates, names(x))
+    if (length(hit) == 0) {
+      NA_character_
+    } else {
+      hit[[1]]
+    }
+  }
+
+  safe_date_range <- function(x, date_col) {
+    if (is.na(date_col) || nrow(x) == 0) {
+      return(list(first = as.Date(NA), last = as.Date(NA)))
+    }
+
+    d <- suppressWarnings(as.Date(as.character(x[[date_col]])))
+
+    if (all(is.na(d))) {
+      return(list(first = as.Date(NA), last = as.Date(NA)))
+    }
+
+    list(
+      first = min(d, na.rm = TRUE),
+      last = max(d, na.rm = TRUE)
+    )
+  }
+
+  summarise_leg <- function(x, leg_name) {
+    amount_col <- pick_col(
+      x,
+      c("amount", "Amount", "cashflow_amount", "cashflow")
+    )
+
+    date_col <- pick_col(
+      x,
+      c("date", "Date", "payment_date", "pay_date")
+    )
+
+    date_range <- safe_date_range(x, date_col)
+
+    total_amount <- if (is.na(amount_col)) {
+      NA_real_
+    } else {
+      sum(as.numeric(x[[amount_col]]), na.rm = TRUE)
+    }
+
+    tibble::tibble(
+      leg = leg_name,
+      cashflow_count = nrow(x),
+      first_payment_date = date_range$first,
+      last_payment_date = date_range$last,
+      total_amount = total_amount
+    )
+  }
+
+  dplyr::bind_rows(
+    summarise_leg(fixed_leg, "fixed_leg"),
+    summarise_leg(overnight_leg, "overnight_leg")
   )
 }
