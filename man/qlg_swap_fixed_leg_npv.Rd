@@ -9,6 +9,9 @@ qlg_swap_fixed_leg_npv(swap)
 \arguments{
 \item{swap}{A QuantLib VanillaSwap-like object.}
 }
+\value{
+Fixed leg NPV.
+}
 \description{
 Swap fixed leg NPV
 }

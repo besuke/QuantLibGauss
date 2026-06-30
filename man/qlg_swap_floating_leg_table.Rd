@@ -9,6 +9,9 @@ qlg_swap_floating_leg_table(swap)
 \arguments{
 \item{swap}{A QuantLib VanillaSwap-like object.}
 }
+\value{
+A tibble of floating leg cashflows.
+}
 \description{
 Swap floating leg cashflow table
 }

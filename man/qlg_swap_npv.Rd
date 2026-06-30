@@ -9,6 +9,9 @@ qlg_swap_npv(swap)
 \arguments{
 \item{swap}{A QuantLib Swap object.}
 }
+\value{
+Swap NPV.
+}
 \description{
 Swap NPV
 }

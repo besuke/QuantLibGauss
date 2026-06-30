@@ -9,6 +9,9 @@ qlg_swap_fair_rate(swap)
 \arguments{
 \item{swap}{A QuantLib VanillaSwap-like object.}
 }
+\value{
+Fair fixed rate. Returns NA if unavailable.
+}
 \description{
 Swap fair fixed rate
 }

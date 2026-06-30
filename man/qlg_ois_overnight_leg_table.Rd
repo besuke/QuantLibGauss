@@ -9,6 +9,9 @@ qlg_ois_overnight_leg_table(swap)
 \arguments{
 \item{swap}{A QuantLib OIS-like object.}
 }
+\value{
+A tibble of overnight leg cashflows.
+}
 \description{
 OIS overnight leg cashflow table
 }

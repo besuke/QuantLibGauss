@@ -9,6 +9,9 @@ qlg_swap_fair_spread(swap)
 \arguments{
 \item{swap}{A QuantLib VanillaSwap-like object.}
 }
+\value{
+Fair spread. Returns NA if unavailable.
+}
 \description{
 Swap fair spread
 }

@@ -9,6 +9,9 @@ qlg_swap_summary(swap)
 \arguments{
 \item{swap}{A QuantLib VanillaSwap-like object.}
 }
+\value{
+A tibble summarising swap valuation measures.
+}
 \description{
 Swap summary
 }

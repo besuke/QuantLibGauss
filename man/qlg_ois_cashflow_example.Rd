@@ -6,6 +6,9 @@
 \usage{
 qlg_ois_cashflow_example()
 }
+\value{
+A list containing today, settlement date, fixed leg, overnight leg, and summary.
+}
 \description{
 Run OIS cashflow example
 }

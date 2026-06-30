@@ -11,6 +11,9 @@ qlg_swap_leg_npv(swap, leg_no)
 
 \item{leg_no}{Leg number. QuantLib uses 0-based leg indexing.}
 }
+\value{
+Swap leg NPV.
+}
 \description{
 Swap leg NPV
 }

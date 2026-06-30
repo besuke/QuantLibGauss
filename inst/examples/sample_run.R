@@ -138,3 +138,17 @@ swap_curve <- qlg_build_swap_curve()
 x <- qlg_ois_cashflow_example()
 x$fixed_leg
 x$overnight_leg
+devtools::load_all()
+
+x <- qlg_ois_cashflow_example()
+
+names(x)
+
+x$fixed_leg
+x$overnight_leg
+x$summary
+x$summary
+
+x <- qlg_ois_cashflow_example()
+x$summary
+

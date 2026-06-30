@@ -9,6 +9,9 @@ qlg_swap_floating_leg_npv(swap)
 \arguments{
 \item{swap}{A QuantLib VanillaSwap-like object.}
 }
+\value{
+Floating leg NPV.
+}
 \description{
 Swap floating leg NPV
 }
