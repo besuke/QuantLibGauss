@@ -232,11 +232,10 @@ qlg_ois_cashflow_example <- function() {
 
   forecast_handle <- QuantLib::YieldTermStructureHandle(forecast_curve)
 
-  overnight_index <- QuantLib::Eonia(forecast_handle)
 
-  swap <- qlg_make_ois(
+  swap <- qlg_make_eonia_ois(
     swap_tenor = QuantLib::Period(5, "Years"),
-    overnight_index = overnight_index,
+    forecast_handle = forecast_handle,
     fixed_rate = 0.002
   )
 
