@@ -672,6 +672,8 @@ qlg_cashflow_leg_summary <- function(cashflows) {
     )
 }
 
+#' Build an OIS cashflow schedule from trade data
+#'
 #'
 #' @param trade A one-row data frame containing OIS trade fields.
 #' @param forecast_handle QuantLib forecast curve handle.
