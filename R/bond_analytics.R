@@ -68,7 +68,7 @@ qlg_bond_yield <- function(
   compounding = "Compounded",
   frequency = "Annual"
 ) {
-  Bond_yield(
+  QuantLib::Bond_yield(
     bond,
     day_counter,
     compounding,
@@ -235,7 +235,7 @@ qlg_bond_yield_from_price <- function(
   )
 
   if (is.null(settlement_date)) {
-    Bond_yield(
+    QuantLib::Bond_yield(
       bond,
       price,
       day_counter,
@@ -243,7 +243,7 @@ qlg_bond_yield_from_price <- function(
       frequency
     )
   } else {
-    Bond_yield(
+    QuantLib::Bond_yield(
       bond,
       price,
       day_counter,
@@ -813,4 +813,95 @@ qlg_bond_summary <- function(
   }
 
   out
+}
+
+
+#' Calculate futures BPV from CTD bond BPV
+#'
+#' Calculate futures BPV using a practical CTD-based approximation:
+#'
+#' \deqn{futures BPV = CTD bond BPV / conversion factor * contracts}
+#'
+#' @param ctd_bpv Numeric CTD bond BPV, DV01, or PV01.
+#' @param conversion_factor Numeric futures conversion factor.
+#' @param contracts Numeric number of futures contracts. Default is 1.
+#'
+#' @return Numeric futures BPV.
+#' @export
+qlg_futures_bpv <- function(ctd_bpv,
+                            conversion_factor,
+                            contracts = 1) {
+  if (!is.numeric(ctd_bpv) || length(ctd_bpv) < 1L || anyNA(ctd_bpv)) {
+    stop("ctd_bpv must be numeric and non-missing.", call. = FALSE)
+  }
+
+  if (!is.numeric(conversion_factor) ||
+      length(conversion_factor) < 1L ||
+      anyNA(conversion_factor) ||
+      any(conversion_factor == 0)) {
+    stop("conversion_factor must be numeric, non-missing, and non-zero.", call. = FALSE)
+  }
+
+  if (!is.numeric(contracts) || length(contracts) < 1L || anyNA(contracts)) {
+    stop("contracts must be numeric and non-missing.", call. = FALSE)
+  }
+
+  ctd_bpv / conversion_factor * contracts
+}
+
+#' Calculate bond futures BPV from a CTD QuantLib bond
+#'
+#' Calculate futures BPV from a CTD QuantLib bond object by first calculating
+#' the CTD bond sensitivity using either \code{qlg_bond_dv01()} or
+#' \code{qlg_bond_pv01()}, then dividing it by the conversion factor.
+#'
+#' @param bond QuantLib bond object for the CTD bond.
+#' @param conversion_factor Numeric futures conversion factor.
+#' @param contracts Numeric number of futures contracts. Default is 1.
+#' @param measure Sensitivity measure to use. Either \code{"dv01"} or \code{"pv01"}.
+#' @param ytm Optional yield to maturity. If \code{NULL}, it is handled by
+#'   \code{qlg_bond_dv01()} or \code{qlg_bond_pv01()}.
+#' @param bp Basis point bump size. Default is 1e-04.
+#' @param day_counter QuantLib day counter.
+#' @param compounding Compounding convention.
+#' @param frequency Coupon frequency.
+#'
+#' @return Numeric futures BPV.
+#' @export
+qlg_bond_futures_bpv <- function(bond,
+                                 conversion_factor,
+                                 contracts = 1,
+                                 measure = c("dv01", "pv01"),
+                                 ytm = NULL,
+                                 bp = 1e-04,
+                                 day_counter = QuantLib::Actual360(),
+                                 compounding = "Compounded",
+                                 frequency = "Annual") {
+  measure <- match.arg(measure)
+
+  ctd_bpv <- switch(
+    measure,
+    dv01 = qlg_bond_dv01(
+      bond = bond,
+      ytm = ytm,
+      bp = bp,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency
+    ),
+    pv01 = qlg_bond_pv01(
+      bond = bond,
+      ytm = ytm,
+      bp = bp,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency
+    )
+  )
+
+  qlg_futures_bpv(
+    ctd_bpv = ctd_bpv,
+    conversion_factor = conversion_factor,
+    contracts = contracts
+  )
 }
