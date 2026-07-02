@@ -7,10 +7,13 @@
 qlg_make_asset_swap(
   bond,
   clean_price,
-  ibor_index,
   floating_schedule,
-  floating_day_counter,
-  deal_maturity,
+  index = "Euribor6M",
+  forecast_handle = NULL,
+  discount_handle = NULL,
+  floating_day_counter = "Actual360",
+  maturity_date = NULL,
+  deal_maturity = NULL,
   pay_bond_coupon = TRUE,
   spread = 0,
   par_asset_swap = TRUE,
@@ -23,13 +26,19 @@ qlg_make_asset_swap(
 
 \item{clean_price}{Bond clean price.}
 
-\item{ibor_index}{QuantLib IborIndex object.}
+\item{floating_schedule}{QuantLib Schedule object for the floating leg.}
 
-\item{floating_schedule}{QuantLib Schedule object.}
+\item{index}{Floating index name or QuantLib IborIndex object.}
 
-\item{floating_day_counter}{QuantLib DayCounter object.}
+\item{forecast_handle}{Forecast curve handle used when index is supplied as a character name.}
 
-\item{deal_maturity}{QuantLib Date object.}
+\item{discount_handle}{Discount curve handle. If supplied, a DiscountingSwapEngine is attached.}
+
+\item{floating_day_counter}{Floating leg day counter name or QuantLib DayCounter object.}
+
+\item{maturity_date}{Optional maturity date as character or Date.}
+
+\item{deal_maturity}{Optional QuantLib Date object for the AssetSwap deal maturity.}
 
 \item{pay_bond_coupon}{Logical. TRUE means paying the bond coupon leg.}
 
@@ -45,5 +54,7 @@ qlg_make_asset_swap(
 QuantLib AssetSwap object.
 }
 \description{
-This is a thin wrapper around QuantLib AssetSwap.
+This is a thin factory wrapper around QuantLib AssetSwap.
+The floating index can be supplied either as a QuantLib IborIndex object
+or as a supported index name such as "Euribor6M".
 }

@@ -464,14 +464,19 @@ qlg_make_vanilla_swap_from_trade <- function(
 
 #' Build a QuantLib AssetSwap
 #'
-#' This is a thin wrapper around QuantLib AssetSwap.
+#' This is a thin factory wrapper around QuantLib AssetSwap.
+#' The floating index can be supplied either as a QuantLib IborIndex object
+#' or as a supported index name such as "Euribor6M".
 #'
 #' @param bond QuantLib bond object.
 #' @param clean_price Bond clean price.
-#' @param ibor_index QuantLib IborIndex object.
-#' @param floating_schedule QuantLib Schedule object.
-#' @param floating_day_counter QuantLib DayCounter object.
-#' @param deal_maturity QuantLib Date object.
+#' @param floating_schedule QuantLib Schedule object for the floating leg.
+#' @param index Floating index name or QuantLib IborIndex object.
+#' @param forecast_handle Forecast curve handle used when index is supplied as a character name.
+#' @param discount_handle Discount curve handle. If supplied, a DiscountingSwapEngine is attached.
+#' @param floating_day_counter Floating leg day counter name or QuantLib DayCounter object.
+#' @param maturity_date Optional maturity date as character or Date.
+#' @param deal_maturity Optional QuantLib Date object for the AssetSwap deal maturity.
 #' @param pay_bond_coupon Logical. TRUE means paying the bond coupon leg.
 #' @param spread Floating leg spread.
 #' @param par_asset_swap Logical. TRUE for par asset swap.
@@ -479,35 +484,78 @@ qlg_make_vanilla_swap_from_trade <- function(
 #' @param non_par_repayment Non-par repayment amount.
 #'
 #' @return QuantLib AssetSwap object.
+#'
 #' @export
 qlg_make_asset_swap <- function(
-  bond,
-  clean_price,
-  ibor_index,
-  floating_schedule,
-  floating_day_counter,
-  deal_maturity,
-  pay_bond_coupon = TRUE,
-  spread = 0,
-  par_asset_swap = TRUE,
-  gearing = 1,
-  non_par_repayment = 100
-) {
-  requireNamespace("QuantLib", quietly = TRUE)
-
-  .qlg_quantlib_fun("AssetSwap__SWIG_0")(
-    pay_bond_coupon,
     bond,
     clean_price,
+    floating_schedule,
+    index = "Euribor6M",
+    forecast_handle = NULL,
+    discount_handle = NULL,
+    floating_day_counter = "Actual360",
+    maturity_date = NULL,
+    deal_maturity = NULL,
+    pay_bond_coupon = TRUE,
+    spread = 0,
+    par_asset_swap = TRUE,
+    gearing = 1,
+    non_par_repayment = 100
+) {
+  qlg_use_quantlib()
+
+  if (missing(floating_schedule) || is.null(floating_schedule)) {
+    stop("floating_schedule must be supplied.", call. = FALSE)
+  }
+
+  ibor_index <- if (is.character(index)) {
+    qlg_make_ibor_index(
+      index = index,
+      forecast_handle = forecast_handle
+    )
+  } else {
+    index
+  }
+
+  floating_day_counter <- qlg_day_counter(floating_day_counter)
+
+  if (is.null(deal_maturity)) {
+    if (!is.null(maturity_date)) {
+      deal_maturity <- qlg_date(maturity_date)
+    } else if (exists("Bond_maturityDate", envir = asNamespace("QuantLib"), inherits = FALSE)) {
+      deal_maturity <- .qlg_quantlib_fun("Bond_maturityDate")(bond)
+    } else {
+      stop(
+        "Either maturity_date or deal_maturity must be supplied.",
+        call. = FALSE
+      )
+    }
+  } else if (is.character(deal_maturity) || inherits(deal_maturity, "Date")) {
+    deal_maturity <- qlg_date(deal_maturity)
+  }
+
+  asset_swap <- .qlg_quantlib_fun("AssetSwap__SWIG_0")(
+    as.logical(pay_bond_coupon),
+    bond,
+    as.numeric(clean_price),
     ibor_index,
-    spread,
+    as.numeric(spread),
     floating_schedule,
     floating_day_counter,
-    par_asset_swap,
-    gearing,
-    non_par_repayment,
+    as.logical(par_asset_swap),
+    as.numeric(gearing),
+    as.numeric(non_par_repayment),
     deal_maturity
   )
+
+  if (!is.null(discount_handle)) {
+    qlg_asset_swap_set_engine(
+      asset_swap = asset_swap,
+      discount_curve_handle = discount_handle
+    )
+  }
+
+  asset_swap
 }
 
 .qlg_asset_swap_set_pricing_engine <- function(asset_swap, engine) {
