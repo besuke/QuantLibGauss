@@ -812,3 +812,331 @@ qlg_make_asset_swap_from_trade <- function(
     )
   )
 }
+
+#' Build a QuantLib CreditDefaultSwap
+#'
+#' This is a thin factory wrapper around QuantLib MakeCreditDefaultSwap.
+#' It builds the CDS instrument only. Pricing requires a pricing engine.
+#'
+#' @param maturity_date CDS maturity date as character, Date, or QuantLib Date.
+#' @param running_spread Running CDS spread.
+#' @param notional CDS notional.
+#' @param side Protection side. Use "buyer", "seller", or a QuantLib Protection object.
+#' @param trade_date Optional trade date as character, Date, or QuantLib Date.
+#' @param coupon_tenor Coupon tenor. Defaults to "3M".
+#' @param day_counter Day counter name or QuantLib DayCounter object.
+#' @param date_generation_rule Date generation rule. Defaults to "CDS2015".
+#' @param pricing_engine Optional QuantLib pricing engine.
+#' @param upfront_rate Optional upfront rate.
+#'
+#' @return QuantLib CreditDefaultSwap object.
+#' @export
+qlg_make_cds <- function(
+    maturity_date,
+    running_spread,
+    notional = 1,
+    side = "buyer",
+    trade_date = NULL,
+    coupon_tenor = "3M",
+    day_counter = "Actual360",
+    date_generation_rule = "CDS2015",
+    pricing_engine = NULL,
+    upfront_rate = NULL
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  maturity_date <- .qlg_cds_date(maturity_date)
+  coupon_tenor <- .qlg_cds_period(coupon_tenor)
+  side <- .qlg_cds_side(side)
+  day_counter <- .qlg_cds_day_counter(day_counter)
+  date_generation_rule <- .qlg_cds_date_generation_rule(date_generation_rule)
+
+  builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap__SWIG_1")(
+    maturity_date,
+    as.numeric(running_spread)
+  )
+
+  builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withNominal")(
+    builder,
+    as.numeric(notional)
+  )
+
+  builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withSide")(
+    builder,
+    side
+  )
+
+  if (!is.null(trade_date)) {
+    builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withTradeDate")(
+      builder,
+      .qlg_cds_date(trade_date)
+    )
+  }
+
+  builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withCouponTenor")(
+    builder,
+    coupon_tenor
+  )
+
+  builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withDayCounter")(
+    builder,
+    day_counter
+  )
+
+  builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withDateGenerationRule")(
+    builder,
+    date_generation_rule
+  )
+
+  if (!is.null(upfront_rate)) {
+    builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withUpfrontRate")(
+      builder,
+      as.numeric(upfront_rate)
+    )
+  }
+
+  if (!is.null(pricing_engine)) {
+    builder <- .qlg_quantlib_fun("MakeCreditDefaultSwap_withPricingEngine")(
+      builder,
+      pricing_engine
+    )
+  }
+
+  .qlg_quantlib_fun("MakeCreditDefaultSwap_makeCDS")(builder)
+}
+
+#' Make a QuantLib CreditDefaultSwap from trade data
+#'
+#' @param trade A one-row data frame containing CDS trade fields.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib CreditDefaultSwap object.
+#' @export
+qlg_make_cds_from_trade <- function(
+    trade,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+
+  if (!is.data.frame(trade) || nrow(trade) != 1) {
+    stop("trade must be a one-row data frame.", call. = FALSE)
+  }
+
+  qlg_make_cds(
+    maturity_date = qlg_trade_value(
+      trade = trade,
+      name = "maturity_date",
+      default = NULL
+    ),
+    running_spread = qlg_trade_value(
+      trade = trade,
+      name = "running_spread",
+      default = NULL
+    ),
+    notional = qlg_trade_value(
+      trade = trade,
+      name = "notional",
+      default = 1
+    ),
+    side = qlg_trade_value(
+      trade = trade,
+      name = "side",
+      default = "buyer"
+    ),
+    trade_date = qlg_trade_value(
+      trade = trade,
+      name = "trade_date",
+      default = NULL
+    ),
+    coupon_tenor = qlg_trade_value(
+      trade = trade,
+      name = "coupon_tenor",
+      default = "3M"
+    ),
+    day_counter = qlg_trade_value(
+      trade = trade,
+      name = "day_counter",
+      default = "Actual360"
+    ),
+    date_generation_rule = qlg_trade_value(
+      trade = trade,
+      name = "date_generation_rule",
+      default = "CDS2015"
+    ),
+    pricing_engine = pricing_engine,
+    upfront_rate = qlg_trade_value(
+      trade = trade,
+      name = "upfront_rate",
+      default = NULL
+    )
+  )
+}
+
+#' CDS NPV
+#'
+#' @param cds QuantLib CreditDefaultSwap object.
+#'
+#' @return Numeric NPV.
+#' @export
+qlg_cds_npv <- function(cds) {
+  .qlg_cds_value(cds, "Instrument_NPV")
+}
+
+#' CDS fair spread
+#'
+#' @param cds QuantLib CreditDefaultSwap object.
+#'
+#' @return Numeric fair spread.
+#' @export
+qlg_cds_fair_spread <- function(cds) {
+  .qlg_cds_value(cds, "CreditDefaultSwap_fairSpread")
+}
+
+#' Summarise a CDS
+#'
+#' @param cds QuantLib CreditDefaultSwap object.
+#'
+#' @return A tibble with CDS analytics.
+#' @export
+qlg_cds_summary <- function(cds) {
+  requireNamespace("tibble", quietly = TRUE)
+
+  tibble::tibble(
+    metric = c(
+      "npv",
+      "fair_spread",
+      "coupon_leg_npv",
+      "default_leg_npv"
+    ),
+    value = c(
+      qlg_cds_npv(cds),
+      qlg_cds_fair_spread(cds),
+      .qlg_cds_value(cds, "CreditDefaultSwap_couponLegNPV"),
+      .qlg_cds_value(cds, "CreditDefaultSwap_defaultLegNPV")
+    )
+  )
+}
+
+.qlg_cds_value <- function(cds, fun_name) {
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  out <- tryCatch(
+    .qlg_quantlib_fun(fun_name)(cds),
+    error = function(e) {
+      stop(
+        "Failed to calculate CDS value with ", fun_name,
+        ". A pricing engine may be required.",
+        call. = FALSE
+      )
+    }
+  )
+
+  as.numeric(out)
+}
+
+.qlg_cds_date <- function(x) {
+  if (is.null(x)) {
+    return(NULL)
+  }
+
+  if (is.character(x) || inherits(x, "Date")) {
+    return(qlg_date(as.character(x)))
+  }
+
+  x
+}
+
+.qlg_cds_period <- function(x) {
+  if (inherits(x, "_p_Period")) {
+    return(x)
+  }
+
+  x <- toupper(trimws(as.character(x)))
+
+  match <- regexec("^([0-9]+)\\s*([DWMY])$", x)
+  parts <- regmatches(x, match)[[1]]
+
+  if (length(parts) != 3) {
+    stop("Unsupported CDS period: ", x, call. = FALSE)
+  }
+
+  n <- as.integer(parts[[2]])
+  unit <- parts[[3]]
+
+  if (identical(unit, "D")) {
+    return(QuantLib::Period(n, QuantLib::TimeUnit_Days_get()))
+  }
+
+  if (identical(unit, "W")) {
+    return(QuantLib::Period(n, QuantLib::TimeUnit_Weeks_get()))
+  }
+
+  if (identical(unit, "M")) {
+    return(QuantLib::Period(n, QuantLib::TimeUnit_Months_get()))
+  }
+
+  if (identical(unit, "Y")) {
+    return(QuantLib::Period(12L * n, QuantLib::TimeUnit_Months_get()))
+  }
+
+  stop("Unsupported CDS period: ", x, call. = FALSE)
+}
+
+.qlg_cds_side <- function(x) {
+  if (!is.character(x)) {
+    return(x)
+  }
+
+  x <- tolower(trimws(x))
+
+  if (x %in% c("buyer", "buy", "protection_buyer")) {
+    return(QuantLib::Protection_Buyer_get())
+  }
+
+  if (x %in% c("seller", "sell", "protection_seller")) {
+    return(QuantLib::Protection_Seller_get())
+  }
+
+  stop("Unsupported CDS side: ", x, call. = FALSE)
+}
+
+.qlg_cds_day_counter <- function(x) {
+  if (!is.character(x)) {
+    return(x)
+  }
+
+  x <- tolower(gsub("[^A-Za-z0-9]", "", trimws(x)))
+
+  if (x %in% c("actual360", "act360")) {
+    return(QuantLib::Actual360())
+  }
+
+  if (x %in% c("actual365fixed", "act365fixed", "actual365", "act365")) {
+    return(QuantLib::Actual365Fixed())
+  }
+
+  stop("Unsupported CDS day counter: ", x, call. = FALSE)
+}
+
+.qlg_cds_date_generation_rule <- function(x) {
+  if (!is.character(x)) {
+    return(x)
+  }
+
+  x <- toupper(gsub("[^A-Za-z0-9]", "", trimws(x)))
+
+  if (identical(x, "CDS2015")) {
+    return(QuantLib::DateGeneration_CDS2015_get())
+  }
+
+  if (identical(x, "CDS")) {
+    return(QuantLib::DateGeneration_CDS_get())
+  }
+
+  if (identical(x, "OLDCDS")) {
+    return(QuantLib::DateGeneration_OldCDS_get())
+  }
+
+  stop("Unsupported CDS date generation rule: ", x, call. = FALSE)
+}
