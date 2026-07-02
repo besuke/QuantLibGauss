@@ -1140,3 +1140,107 @@ qlg_cds_summary <- function(cds) {
 
   stop("Unsupported CDS date generation rule: ", x, call. = FALSE)
 }
+
+#' Build a flat hazard-rate default probability handle
+#'
+#' This is a small helper around QuantLib FlatHazardRate and
+#' DefaultProbabilityTermStructureHandle.
+#'
+#' @param hazard_rate Flat hazard rate.
+#' @param reference_date Reference date as character, Date, or QuantLib Date.
+#' @param day_counter Day counter name or QuantLib DayCounter object.
+#'
+#' @return QuantLib DefaultProbabilityTermStructureHandle.
+#' @export
+qlg_flat_hazard_rate <- function(
+    hazard_rate,
+    reference_date,
+    day_counter = "Actual365Fixed"
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  reference_date <- .qlg_cds_date(reference_date)
+  day_counter <- .qlg_cds_day_counter(day_counter)
+
+  hazard_curve <- .qlg_quantlib_fun("FlatHazardRate__SWIG_1")(
+    reference_date,
+    qlg_quote_handle(as.numeric(hazard_rate)),
+    day_counter
+  )
+
+  .qlg_quantlib_fun("DefaultProbabilityTermStructureHandle__SWIG_2")(
+    hazard_curve
+  )
+}
+
+#' Build a MidPoint CDS pricing engine
+#'
+#' This builds a QuantLib MidPointCdsEngine. You may supply existing
+#' probability and discount handles, or supply flat hazard and discount rates.
+#'
+#' @param probability_handle Optional QuantLib DefaultProbabilityTermStructureHandle.
+#' @param recovery_rate Recovery rate.
+#' @param discount_handle Optional QuantLib YieldTermStructureHandle.
+#' @param hazard_rate Optional flat hazard rate used when probability_handle is NULL.
+#' @param discount_rate Optional flat discount rate used when discount_handle is NULL.
+#' @param reference_date Reference date used for flat curves.
+#' @param day_counter Day counter name or QuantLib DayCounter object.
+#'
+#' @return QuantLib MidPointCdsEngine object.
+#' @export
+qlg_cds_midpoint_engine <- function(
+    probability_handle = NULL,
+    recovery_rate = 0.40,
+    discount_handle = NULL,
+    hazard_rate = NULL,
+    discount_rate = NULL,
+    reference_date = NULL,
+    day_counter = "Actual365Fixed"
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  if (is.null(probability_handle)) {
+    if (is.null(hazard_rate) || is.null(reference_date)) {
+      stop(
+        "Either probability_handle or both hazard_rate and reference_date must be supplied.",
+        call. = FALSE
+      )
+    }
+
+    probability_handle <- qlg_flat_hazard_rate(
+      hazard_rate = hazard_rate,
+      reference_date = reference_date,
+      day_counter = day_counter
+    )
+  }
+
+  if (is.null(discount_handle)) {
+    if (is.null(discount_rate) || is.null(reference_date)) {
+      stop(
+        "Either discount_handle or both discount_rate and reference_date must be supplied.",
+        call. = FALSE
+      )
+    }
+
+    reference_date <- .qlg_cds_date(reference_date)
+    day_counter <- .qlg_cds_day_counter(day_counter)
+
+    discount_curve <- .qlg_quantlib_fun("FlatForward__SWIG_2")(
+      reference_date,
+      qlg_quote_handle(as.numeric(discount_rate)),
+      day_counter
+    )
+
+    discount_handle <- .qlg_quantlib_fun("YieldTermStructureHandle__SWIG_2")(
+      discount_curve
+    )
+  }
+
+  .qlg_quantlib_fun("MidPointCdsEngine")(
+    probability_handle,
+    as.numeric(recovery_rate),
+    discount_handle
+  )
+}
