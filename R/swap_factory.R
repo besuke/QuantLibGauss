@@ -628,3 +628,187 @@ qlg_asset_swap_summary <- function(asset_swap) {
     )
   )
 }
+
+
+.qlg_trade_logical <- function(
+    trade,
+    name,
+    default = FALSE
+) {
+  value <- qlg_trade_value(
+    trade = trade,
+    name = name,
+    default = default
+  )
+
+  if (is.logical(value)) {
+    return(value)
+  }
+
+  if (is.numeric(value)) {
+    return(value != 0)
+  }
+
+  value_chr <- tolower(as.character(value))
+
+  if (value_chr %in% c("true", "t", "yes", "y", "1")) {
+    return(TRUE)
+  }
+
+  if (value_chr %in% c("false", "f", "no", "n", "0")) {
+    return(FALSE)
+  }
+
+  stop(
+    "Could not convert trade field '",
+    name,
+    "' to logical: ",
+    value,
+    call. = FALSE
+  )
+}
+
+#' Make a QuantLib AssetSwap from trade data
+#'
+#' This builds an AssetSwap from a one-row trade data frame and a QuantLib bond.
+#' If a floating schedule is not supplied, it is built from effective_date,
+#' maturity_date, and floating_tenor fields in the trade.
+#'
+#' @param trade A one-row data frame containing AssetSwap trade fields.
+#' @param bond QuantLib bond object.
+#' @param forecast_handle Forecast curve handle used when index is supplied as a character name.
+#' @param discount_handle Discount curve handle. If supplied, a DiscountingSwapEngine is attached.
+#' @param floating_schedule Optional QuantLib Schedule object for the floating leg.
+#' @param calendar QuantLib calendar used when building the floating schedule.
+#'
+#' @return A QuantLib AssetSwap object.
+#'
+#' @export
+qlg_make_asset_swap_from_trade <- function(
+    trade,
+    bond,
+    forecast_handle = NULL,
+    discount_handle = NULL,
+    floating_schedule = NULL,
+    calendar = QuantLib::TARGET()
+) {
+  qlg_use_quantlib()
+
+  stopifnot(is.data.frame(trade))
+  stopifnot(nrow(trade) == 1)
+
+  clean_price <- as.numeric(
+    qlg_trade_value(
+      trade = trade,
+      name = "clean_price",
+      default = 100
+    )
+  )
+
+  effective_date <- qlg_trade_value(
+    trade = trade,
+    name = "effective_date",
+    default = NULL
+  )
+
+  maturity_date <- qlg_trade_value(
+    trade = trade,
+    name = "maturity_date",
+    default = NULL
+  )
+
+  if (is.null(floating_schedule)) {
+    if (is.null(effective_date) || is.null(maturity_date)) {
+      stop(
+        "trade must contain effective_date and maturity_date ",
+        "when floating_schedule is not supplied.",
+        call. = FALSE
+      )
+    }
+
+    floating_tenor <- qlg_trade_period(
+      trade = trade,
+      n_col = "floating_tenor_n",
+      unit_col = "floating_tenor_unit",
+      default_n = 6,
+      default_unit = "Months"
+    )
+
+    floating_schedule <- qlg_make_schedule(
+      effective_date = as.character(effective_date),
+      maturity_date = as.character(maturity_date),
+      tenor = floating_tenor,
+      calendar = calendar,
+      convention = qlg_trade_value(
+        trade = trade,
+        name = "floating_convention",
+        default = "ModifiedFollowing"
+      ),
+      termination_convention = qlg_trade_value(
+        trade = trade,
+        name = "floating_termination_convention",
+        default = "ModifiedFollowing"
+      ),
+      date_generation = qlg_trade_value(
+        trade = trade,
+        name = "floating_date_generation",
+        default = "Forward"
+      ),
+      end_of_month = .qlg_trade_logical(
+        trade = trade,
+        name = "floating_end_of_month",
+        default = FALSE
+      )
+    )
+  }
+
+  qlg_make_asset_swap(
+    bond = bond,
+    clean_price = clean_price,
+    floating_schedule = floating_schedule,
+    index = qlg_trade_value(
+      trade = trade,
+      name = "index",
+      default = "Euribor6M"
+    ),
+    forecast_handle = forecast_handle,
+    discount_handle = discount_handle,
+    floating_day_counter = qlg_trade_value(
+      trade = trade,
+      name = "floating_day_counter",
+      default = "Actual360"
+    ),
+    maturity_date = maturity_date,
+    pay_bond_coupon = .qlg_trade_logical(
+      trade = trade,
+      name = "pay_bond_coupon",
+      default = TRUE
+    ),
+    spread = as.numeric(
+      qlg_trade_value(
+        trade = trade,
+        name = "spread",
+        default = 0
+      )
+    ),
+    par_asset_swap = .qlg_trade_logical(
+      trade = trade,
+      name = "par_asset_swap",
+      default = TRUE
+    ),
+    gearing = as.numeric(
+      qlg_trade_value(
+        trade = trade,
+        name = "gearing",
+        default = 1
+      )
+    ),
+    non_par_repayment = as.numeric(
+      qlg_trade_value(
+        trade = trade,
+        name = "non_par_repayment",
+        default = 100
+      )
+    )
+  )
+}
