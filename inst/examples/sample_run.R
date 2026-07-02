@@ -2,12 +2,15 @@ rm(list = ls())
 
 setwd("C:/AnalyticFin/Projects/QuantLibGauss")
 
-
+.libPaths(c(
+  "C:/AnalyticFin/Projects/QuantLibGauss/library/windows",
+  .libPaths()
+))
 
 library(QuantLib)
-
-devtools::document()
 devtools::load_all()
+devtools::document()
+
 qlg_eval_date("2008-09-18")
 
 curve <- qlg_build_bond_discount_curve()
@@ -135,20 +138,12 @@ ois$curve
 
 bond_curve <- qlg_build_bond_discount_curve()
 swap_curve <- qlg_build_swap_curve()
-x <- qlg_ois_cashflow_example()
-x$fixed_leg
-x$overnight_leg
-devtools::load_all()
-
-x <- qlg_ois_cashflow_example()
-
-names(x)
-
-x$fixed_leg
-x$overnight_leg
-x$summary
-x$summary
-
-x <- qlg_ois_cashflow_example()
-x$summary
+hazard_quote <- qlg_quote_handle(0.02)
+discount_quote <- qlg_quote_handle(0.03)
+engine <- qlg_cds_midpoint_engine(
+  hazard_rate = 0.02,
+  recovery_rate = 0.40,
+  discount_rate = 0.03,
+  reference_date = "2024-01-02"
+)
 
