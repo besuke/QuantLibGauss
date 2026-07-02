@@ -130,6 +130,8 @@ qlg_bond_accrued <- function(bond) {
 #' Bond Example
 #' @export
 qlg_bond_example <- function() {
+
+  qlg_eval_date("2010-01-01")
   curve <- qlg_build_bond_discount_curve()
   bond <- qlg_zero_coupon_bond(curve)
 

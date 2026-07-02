@@ -1,4 +1,4 @@
-# curve_builder.R
+# R/curve_builder.R
 
 #' Build a QuantLib discount curve from zero-rate nodes
 #'
@@ -12,6 +12,8 @@ qlg_build_discount_curve <- function(
     nodes,
     day_counter = "Actual365Fixed"
 ) {
+  qlg_use_quantlib()
+
   stopifnot(is.data.frame(nodes))
   stopifnot(all(c("date", "zero_rate") %in% names(nodes)))
 
@@ -32,6 +34,46 @@ qlg_build_discount_curve <- function(
     dfs,
     dc
   )
+}
+
+#' Build a QuantLib zero curve from zero-rate nodes
+#'
+#' @param date_chr Character vector of ISO dates.
+#' @param zero_rates Numeric vector of zero rates.
+#' @param day_counter Day counter name or QuantLib day counter object.
+#'
+#' @return A QuantLib ZeroCurve object.
+#'
+#' @export
+qlg_build_zero_curve <- function(
+    date_chr,
+    zero_rates,
+    day_counter = "Actual365Fixed"
+) {
+  qlg_use_quantlib()
+
+  dates_ql <- qlg_make_date_vector(as.character(date_chr))
+  dc <- qlg_day_counter(day_counter)
+
+  QuantLib::ZeroCurve(
+    dates_ql,
+    as.numeric(zero_rates),
+    dc
+  )
+}
+
+
+#' Build a QuantLib yield curve handle
+#'
+#' @param curve A QuantLib yield term structure object.
+#'
+#' @return A QuantLib YieldTermStructureHandle object.
+#'
+#' @export
+qlg_yield_curve_handle <- function(curve) {
+  qlg_use_quantlib()
+
+  QuantLib::YieldTermStructureHandle(curve)
 }
 
 
@@ -387,3 +429,4 @@ qlg_build_swap_curve <- function(
     term_structure_day_counter
   )
 }
+
