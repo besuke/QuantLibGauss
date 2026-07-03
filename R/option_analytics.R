@@ -226,3 +226,78 @@ qlg_option_summary <- function(option) {
 
   stop("Unsupported option_type: ", x, ". Use 'call' or 'put'.", call. = FALSE)
 }
+#' Make a European vanilla option from trade data
+#'
+#' @param trade A one-row data frame containing European option trade fields.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib VanillaOption object.
+#' @export
+qlg_make_european_option_from_trade <- function(
+    trade,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+
+  if (!is.data.frame(trade) || nrow(trade) != 1) {
+    stop("trade must be a one-row data frame.", call. = FALSE)
+  }
+
+  maturity_date <- qlg_trade_value(
+    trade = trade,
+    name = "maturity_date",
+    default = NULL
+  )
+
+  if (is.null(maturity_date)) {
+    maturity_date <- qlg_trade_value(
+      trade = trade,
+      name = "expiry_date",
+      default = NULL
+    )
+  }
+
+  if (is.null(maturity_date)) {
+    stop("trade must contain maturity_date or expiry_date.", call. = FALSE)
+  }
+
+  qlg_make_european_option(
+    spot = qlg_trade_value(
+      trade = trade,
+      name = "spot",
+      default = NULL
+    ),
+    strike = qlg_trade_value(
+      trade = trade,
+      name = "strike",
+      default = NULL
+    ),
+    maturity_date = maturity_date,
+    option_type = qlg_trade_value(
+      trade = trade,
+      name = "option_type",
+      default = "call"
+    ),
+    valuation_date = qlg_trade_value(
+      trade = trade,
+      name = "valuation_date",
+      default = qlg_eval_date_get()
+    ),
+    risk_free_rate = qlg_trade_value(
+      trade = trade,
+      name = "risk_free_rate",
+      default = 0.03
+    ),
+    dividend_yield = qlg_trade_value(
+      trade = trade,
+      name = "dividend_yield",
+      default = 0
+    ),
+    volatility = qlg_trade_value(
+      trade = trade,
+      name = "volatility",
+      default = 0.20
+    ),
+    pricing_engine = pricing_engine
+  )
+}
