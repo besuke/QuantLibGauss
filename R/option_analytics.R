@@ -485,3 +485,139 @@ qlg_make_american_option <- function(
 
   option
 }
+#' Make a QuantLib barrier option
+#'
+#' @param spot Spot price.
+#' @param strike Strike price.
+#' @param maturity_date Option maturity date.
+#' @param barrier Barrier level.
+#' @param barrier_type Barrier type. Use "down_out", "up_out", "down_in", or "up_in".
+#' @param rebate Barrier rebate amount.
+#' @param option_type Option type. Use "call" or "put".
+#' @param valuation_date Evaluation date.
+#' @param risk_free_rate Flat risk-free rate.
+#' @param dividend_yield Flat dividend yield.
+#' @param volatility Flat Black volatility.
+#' @param day_counter QuantLib day counter.
+#' @param calendar QuantLib calendar.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib BarrierOption object.
+#' @export
+qlg_make_barrier_option <- function(
+    spot,
+    strike,
+    maturity_date,
+    barrier,
+    barrier_type = "down_out",
+    rebate = 0,
+    option_type = "call",
+    valuation_date = qlg_eval_date_get(),
+    risk_free_rate = 0.03,
+    dividend_yield = 0,
+    volatility = 0.20,
+    day_counter = QuantLib::Actual365Fixed(),
+    calendar = QuantLib::TARGET(),
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  valuation_date <- as.character(as.Date(valuation_date))
+  qlg_eval_date(valuation_date)
+
+  eval_date <- qlg_date(valuation_date)
+  maturity_date <- .qlg_option_date(maturity_date)
+  option_type <- .qlg_option_type(option_type)
+  barrier_type <- .qlg_barrier_type(barrier_type)
+
+  spot_handle <- QuantLib::QuoteHandle(
+    QuantLib::SimpleQuote(as.numeric(spot))
+  )
+
+  risk_free_curve <- QuantLib::YieldTermStructureHandle(
+    QuantLib::FlatForward(
+      eval_date,
+      as.numeric(risk_free_rate),
+      day_counter
+    )
+  )
+
+  dividend_curve <- QuantLib::YieldTermStructureHandle(
+    QuantLib::FlatForward(
+      eval_date,
+      as.numeric(dividend_yield),
+      day_counter
+    )
+  )
+
+  vol_curve <- QuantLib::BlackVolTermStructureHandle(
+    QuantLib::BlackConstantVol(
+      eval_date,
+      calendar,
+      as.numeric(volatility),
+      day_counter
+    )
+  )
+
+  process <- QuantLib::BlackScholesMertonProcess(
+    spot_handle,
+    dividend_curve,
+    risk_free_curve,
+    vol_curve
+  )
+
+  payoff <- QuantLib::PlainVanillaPayoff(
+    option_type,
+    as.numeric(strike)
+  )
+
+  exercise <- QuantLib::EuropeanExercise(maturity_date)
+
+  option <- QuantLib::BarrierOption(
+    barrier_type,
+    as.numeric(barrier),
+    as.numeric(rebate),
+    payoff,
+    exercise
+  )
+
+  if (is.null(pricing_engine)) {
+    pricing_engine <- QuantLib::AnalyticBarrierEngine(process)
+  }
+
+  QuantLib::Instrument_setPricingEngine(option, pricing_engine)
+
+  option
+}
+
+.qlg_barrier_type <- function(x) {
+  if (!is.character(x)) {
+    return(x)
+  }
+
+  x <- tolower(gsub("[^A-Za-z0-9]", "", trimws(x[[1]])))
+
+  if (x %in% c("downout", "downandout", "do")) {
+    return(QuantLib::Barrier_DownOut_get())
+  }
+
+  if (x %in% c("upout", "upandout", "uo")) {
+    return(QuantLib::Barrier_UpOut_get())
+  }
+
+  if (x %in% c("downin", "downandin", "di")) {
+    return(QuantLib::Barrier_DownIn_get())
+  }
+
+  if (x %in% c("upin", "upandin", "ui")) {
+    return(QuantLib::Barrier_UpIn_get())
+  }
+
+  stop(
+    "Unsupported barrier_type: ",
+    x,
+    ". Use 'down_out', 'up_out', 'down_in', or 'up_in'.",
+    call. = FALSE
+  )
+}
