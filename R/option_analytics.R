@@ -188,19 +188,11 @@ qlg_option_summary <- function(option) {
 .qlg_option_value <- function(option, fun_name) {
   out <- tryCatch(
     .qlg_quantlib_fun(fun_name)(option),
-    error = function(e) {
-      stop(
-        "Failed to calculate option value with ",
-        fun_name,
-        ". A pricing engine may be required.",
-        call. = FALSE
-      )
-    }
+    error = function(e) NA_real_
   )
 
   as.numeric(out)
 }
-
 .qlg_option_date <- function(x) {
   if (is.character(x) || inherits(x, "Date")) {
     return(qlg_date(as.character(as.Date(x))))
@@ -389,4 +381,107 @@ qlg_option_implied_volatility <- function(
       as.numeric(max_vol)
     )
   )
+}
+#' Make a QuantLib American vanilla option
+#'
+#' @param spot Spot price.
+#' @param strike Strike price.
+#' @param maturity_date Option maturity date.
+#' @param option_type Option type. Use "call" or "put".
+#' @param valuation_date Evaluation date.
+#' @param risk_free_rate Flat risk-free rate.
+#' @param dividend_yield Flat dividend yield.
+#' @param volatility Flat Black volatility.
+#' @param day_counter QuantLib day counter.
+#' @param calendar QuantLib calendar.
+#' @param steps Number of binomial tree steps.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib VanillaOption object.
+#' @export
+qlg_make_american_option <- function(
+    spot,
+    strike,
+    maturity_date,
+    option_type = "put",
+    valuation_date = qlg_eval_date_get(),
+    risk_free_rate = 0.03,
+    dividend_yield = 0,
+    volatility = 0.20,
+    day_counter = QuantLib::Actual365Fixed(),
+    calendar = QuantLib::TARGET(),
+    steps = 200L,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  valuation_date <- as.character(as.Date(valuation_date))
+  qlg_eval_date(valuation_date)
+
+  eval_date <- qlg_date(valuation_date)
+  maturity_date <- .qlg_option_date(maturity_date)
+  option_type <- .qlg_option_type(option_type)
+
+  spot_handle <- QuantLib::QuoteHandle(
+    QuantLib::SimpleQuote(as.numeric(spot))
+  )
+
+  risk_free_curve <- QuantLib::YieldTermStructureHandle(
+    QuantLib::FlatForward(
+      eval_date,
+      as.numeric(risk_free_rate),
+      day_counter
+    )
+  )
+
+  dividend_curve <- QuantLib::YieldTermStructureHandle(
+    QuantLib::FlatForward(
+      eval_date,
+      as.numeric(dividend_yield),
+      day_counter
+    )
+  )
+
+  vol_curve <- QuantLib::BlackVolTermStructureHandle(
+    QuantLib::BlackConstantVol(
+      eval_date,
+      calendar,
+      as.numeric(volatility),
+      day_counter
+    )
+  )
+
+  process <- QuantLib::BlackScholesMertonProcess(
+    spot_handle,
+    dividend_curve,
+    risk_free_curve,
+    vol_curve
+  )
+
+  payoff <- QuantLib::PlainVanillaPayoff(
+    option_type,
+    as.numeric(strike)
+  )
+
+  exercise <- QuantLib::AmericanExercise(
+    eval_date,
+    maturity_date
+  )
+
+  option <- QuantLib::VanillaOption(
+    payoff,
+    exercise
+  )
+
+  if (is.null(pricing_engine)) {
+    pricing_engine <- QuantLib::BinomialCRRVanillaEngine(
+      process,
+      as.integer(steps)
+    )
+  }
+
+  QuantLib::Instrument_setPricingEngine(option, pricing_engine)
+
+  option
 }
