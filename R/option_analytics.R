@@ -301,3 +301,92 @@ qlg_make_european_option_from_trade <- function(
     pricing_engine = pricing_engine
   )
 }
+#' Option implied volatility
+#'
+#' @param option QuantLib option object.
+#' @param target_value Market option value.
+#' @param spot Spot price.
+#' @param valuation_date Evaluation date.
+#' @param risk_free_rate Flat risk-free rate.
+#' @param dividend_yield Flat dividend yield.
+#' @param volatility Initial volatility used to build the process.
+#' @param day_counter QuantLib day counter.
+#' @param calendar QuantLib calendar.
+#' @param accuracy Solver accuracy.
+#' @param max_evaluations Maximum solver evaluations.
+#' @param min_vol Minimum volatility.
+#' @param max_vol Maximum volatility.
+#'
+#' @return Numeric implied volatility.
+#' @export
+qlg_option_implied_volatility <- function(
+    option,
+    target_value,
+    spot,
+    valuation_date = qlg_eval_date_get(),
+    risk_free_rate = 0.03,
+    dividend_yield = 0,
+    volatility = 0.20,
+    day_counter = QuantLib::Actual365Fixed(),
+    calendar = QuantLib::TARGET(),
+    accuracy = 1e-6,
+    max_evaluations = 100,
+    min_vol = 1e-7,
+    max_vol = 4.0
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  valuation_date <- as.character(as.Date(valuation_date))
+  qlg_eval_date(valuation_date)
+
+  eval_date <- qlg_date(valuation_date)
+
+  spot_handle <- QuantLib::QuoteHandle(
+    QuantLib::SimpleQuote(as.numeric(spot))
+  )
+
+  risk_free_curve <- QuantLib::YieldTermStructureHandle(
+    QuantLib::FlatForward(
+      eval_date,
+      as.numeric(risk_free_rate),
+      day_counter
+    )
+  )
+
+  dividend_curve <- QuantLib::YieldTermStructureHandle(
+    QuantLib::FlatForward(
+      eval_date,
+      as.numeric(dividend_yield),
+      day_counter
+    )
+  )
+
+  vol_curve <- QuantLib::BlackVolTermStructureHandle(
+    QuantLib::BlackConstantVol(
+      eval_date,
+      calendar,
+      as.numeric(volatility),
+      day_counter
+    )
+  )
+
+  process <- QuantLib::BlackScholesMertonProcess(
+    spot_handle,
+    dividend_curve,
+    risk_free_curve,
+    vol_curve
+  )
+
+  as.numeric(
+    QuantLib::VanillaOption_impliedVolatility(
+      option,
+      as.numeric(target_value),
+      process,
+      as.numeric(accuracy),
+      as.integer(max_evaluations),
+      as.numeric(min_vol),
+      as.numeric(max_vol)
+    )
+  )
+}
