@@ -715,3 +715,86 @@ qlg_make_barrier_option_from_trade <- function(
     pricing_engine = pricing_engine
   )
 }
+#' Make an American vanilla option from trade data
+#'
+#' @param trade A one-row data frame containing American option trade fields.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib VanillaOption object.
+#' @export
+qlg_make_american_option_from_trade <- function(
+    trade,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+
+  if (!is.data.frame(trade) || nrow(trade) != 1) {
+    stop("trade must be a one-row data frame.", call. = FALSE)
+  }
+
+  maturity_date <- qlg_trade_value(
+    trade = trade,
+    name = "maturity_date",
+    default = NULL
+  )
+
+  if (is.null(maturity_date)) {
+    maturity_date <- qlg_trade_value(
+      trade = trade,
+      name = "expiry_date",
+      default = NULL
+    )
+  }
+
+  if (is.null(maturity_date)) {
+    stop("trade must contain maturity_date or expiry_date.", call. = FALSE)
+  }
+
+  spot <- qlg_trade_value(trade, "spot", default = NULL)
+  strike <- qlg_trade_value(trade, "strike", default = NULL)
+
+  if (is.null(spot)) {
+    stop("trade must contain spot.", call. = FALSE)
+  }
+
+  if (is.null(strike)) {
+    stop("trade must contain strike.", call. = FALSE)
+  }
+
+  qlg_make_american_option(
+    spot = spot,
+    strike = strike,
+    maturity_date = maturity_date,
+    option_type = qlg_trade_value(
+      trade = trade,
+      name = "option_type",
+      default = "put"
+    ),
+    valuation_date = qlg_trade_value(
+      trade = trade,
+      name = "valuation_date",
+      default = qlg_eval_date_get()
+    ),
+    risk_free_rate = qlg_trade_value(
+      trade = trade,
+      name = "risk_free_rate",
+      default = 0.03
+    ),
+    dividend_yield = qlg_trade_value(
+      trade = trade,
+      name = "dividend_yield",
+      default = 0
+    ),
+    volatility = qlg_trade_value(
+      trade = trade,
+      name = "volatility",
+      default = 0.20
+    ),
+    steps = qlg_trade_value(
+      trade = trade,
+      name = "steps",
+      default = 200L
+    ),
+    pricing_engine = pricing_engine
+  )
+}
