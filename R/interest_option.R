@@ -783,3 +783,100 @@ qlg_swaption_summary <- function(swaption) {
 
   as.numeric(out)
 }
+#' Make a Hull-White swaption from trade data
+#'
+#' @param trade A one-row data frame containing swaption trade fields.
+#' @param forecast_handle Optional forecast curve handle.
+#' @param discount_handle Optional discount curve handle.
+#' @param pricing_engine Optional QuantLib swaption pricing engine.
+#'
+#' @return QuantLib Swaption object.
+#' @export
+qlg_make_swaption_from_trade <- function(
+    trade,
+    forecast_handle = NULL,
+    discount_handle = NULL,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+
+  if (!is.data.frame(trade) || nrow(trade) != 1) {
+    stop("trade must be a one-row data frame.", call. = FALSE)
+  }
+
+  exercise_date <- .qlg_interest_option_required_field(
+    trade = trade,
+    names = c("exercise_date", "option_expiry_date", "expiry_date"),
+    label = "exercise_date, option_expiry_date, or expiry_date"
+  )
+
+  valuation_date <- .qlg_interest_option_trade_field(
+    trade = trade,
+    names = c("valuation_date", "eval_date"),
+    default = qlg_eval_date_get()
+  )
+
+  rate <- .qlg_interest_option_trade_field(
+    trade = trade,
+    names = c("discount_rate", "risk_free_rate", "rate"),
+    default = 0.03
+  )
+
+  day_counter <- QuantLib::Actual365Fixed()
+
+  term_structure <- discount_handle
+
+  if (is.null(term_structure)) {
+    term_structure <- .qlg_interest_option_flat_curve(
+      valuation_date = valuation_date,
+      rate = rate,
+      day_counter = day_counter
+    )
+  }
+
+  if (is.null(forecast_handle)) {
+    forecast_handle <- term_structure
+  }
+
+  if (is.null(discount_handle)) {
+    discount_handle <- term_structure
+  }
+
+  if (is.null(pricing_engine)) {
+    pricing_engine <- qlg_hull_white_swaption_engine(
+      term_structure = term_structure,
+      a = .qlg_interest_option_trade_field(
+        trade = trade,
+        names = c("hw_a", "hull_white_a", "mean_reversion"),
+        default = 0.03
+      ),
+      sigma = .qlg_interest_option_trade_field(
+        trade = trade,
+        names = c("hw_sigma", "hull_white_sigma", "short_rate_volatility"),
+        default = 0.01
+      ),
+      method = .qlg_interest_option_trade_field(
+        trade = trade,
+        names = c("swaption_method", "engine_method", "method"),
+        default = "jamshidian"
+      ),
+      time_steps = .qlg_interest_option_trade_field(
+        trade = trade,
+        names = c("time_steps", "tree_steps"),
+        default = 60L
+      )
+    )
+  }
+
+  underlying_swap <- qlg_make_vanilla_swap_from_trade(
+    trade = trade,
+    forecast_handle = forecast_handle,
+    discount_handle = discount_handle
+  )
+
+  qlg_make_swaption(
+    underlying_swap = underlying_swap,
+    exercise_date = exercise_date,
+    pricing_engine = pricing_engine
+  )
+}
