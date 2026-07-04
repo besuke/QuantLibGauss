@@ -880,3 +880,213 @@ qlg_make_swaption_from_trade <- function(
     pricing_engine = pricing_engine
   )
 }
+#' Make a QuantLib Bermudan swaption
+#'
+#' @param underlying_swap QuantLib VanillaSwap object.
+#' @param exercise_dates Bermudan exercise dates.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib Swaption object.
+#' @export
+qlg_make_bermudan_swaption <- function(
+    underlying_swap,
+    exercise_dates,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  exercise <- QuantLib::BermudanExercise__SWIG_1(
+    .qlg_bermudan_exercise_date_vector(exercise_dates)
+  )
+
+  swaption <- QuantLib::Swaption__SWIG_2(
+    underlying_swap,
+    exercise
+  )
+
+  if (!is.null(pricing_engine)) {
+    QuantLib::Instrument_setPricingEngine(
+      swaption,
+      pricing_engine
+    )
+  }
+
+  swaption
+}
+
+#' Make a Bermudan swaption from trade data
+#'
+#' @param trade A one-row data frame containing Bermudan swaption trade fields.
+#' @param forecast_handle Optional forecast curve handle.
+#' @param discount_handle Optional discount curve handle.
+#' @param pricing_engine Optional QuantLib swaption pricing engine.
+#'
+#' @return QuantLib Swaption object.
+#' @export
+qlg_make_bermudan_swaption_from_trade <- function(
+    trade,
+    forecast_handle = NULL,
+    discount_handle = NULL,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+
+  if (!is.data.frame(trade) || nrow(trade) != 1) {
+    stop("trade must be a one-row data frame.", call. = FALSE)
+  }
+
+  exercise_dates <- .qlg_interest_option_raw_field(
+    trade = trade,
+    names = c("exercise_dates", "bermudan_dates", "exercise_schedule"),
+    default = NULL
+  )
+
+  if (is.null(exercise_dates)) {
+    stop(
+      "trade must contain exercise_dates, bermudan_dates, or exercise_schedule.",
+      call. = FALSE
+    )
+  }
+
+  valuation_date <- .qlg_interest_option_trade_field(
+    trade = trade,
+    names = c("valuation_date", "eval_date"),
+    default = qlg_eval_date_get()
+  )
+
+  rate <- .qlg_interest_option_trade_field(
+    trade = trade,
+    names = c("discount_rate", "risk_free_rate", "rate"),
+    default = 0.03
+  )
+
+  day_counter <- QuantLib::Actual365Fixed()
+
+  term_structure <- discount_handle
+
+  if (is.null(term_structure)) {
+    term_structure <- .qlg_interest_option_flat_curve(
+      valuation_date = valuation_date,
+      rate = rate,
+      day_counter = day_counter
+    )
+  }
+
+  if (is.null(forecast_handle)) {
+    forecast_handle <- term_structure
+  }
+
+  if (is.null(discount_handle)) {
+    discount_handle <- term_structure
+  }
+
+  if (is.null(pricing_engine)) {
+    method <- .qlg_interest_option_trade_field(
+      trade = trade,
+      names = c("swaption_method", "engine_method", "method"),
+      default = "tree"
+    )
+
+    method <- .qlg_interest_option_token(method)
+
+    if (!identical(method, "tree")) {
+      stop(
+        "Bermudan swaption currently supports method = 'tree'.",
+        call. = FALSE
+      )
+    }
+
+    pricing_engine <- qlg_hull_white_swaption_engine(
+      term_structure = term_structure,
+      a = .qlg_interest_option_trade_field(
+        trade = trade,
+        names = c("hw_a", "hull_white_a", "mean_reversion"),
+        default = 0.03
+      ),
+      sigma = .qlg_interest_option_trade_field(
+        trade = trade,
+        names = c("hw_sigma", "hull_white_sigma", "short_rate_volatility"),
+        default = 0.01
+      ),
+      method = "tree",
+      time_steps = .qlg_interest_option_trade_field(
+        trade = trade,
+        names = c("time_steps", "tree_steps"),
+        default = 60L
+      )
+    )
+  }
+
+  underlying_swap <- qlg_make_vanilla_swap_from_trade(
+    trade = trade,
+    forecast_handle = forecast_handle,
+    discount_handle = discount_handle
+  )
+
+  qlg_make_bermudan_swaption(
+    underlying_swap = underlying_swap,
+    exercise_dates = exercise_dates,
+    pricing_engine = pricing_engine
+  )
+}
+
+.qlg_bermudan_exercise_date_vector <- function(exercise_dates) {
+  dates <- .qlg_interest_option_parse_exercise_dates(exercise_dates)
+
+  out <- QuantLib::DateVector()
+
+  for (d in dates) {
+    QuantLib::DateVector_append(
+      out,
+      qlg_date(d)
+    )
+  }
+
+  out
+}
+
+.qlg_interest_option_parse_exercise_dates <- function(exercise_dates) {
+  if (is.list(exercise_dates) && length(exercise_dates) == 1) {
+    exercise_dates <- exercise_dates[[1]]
+  }
+
+  if (length(exercise_dates) == 1 && is.character(exercise_dates)) {
+    exercise_dates <- unlist(
+      strsplit(
+        exercise_dates,
+        split = "[,;]",
+        perl = TRUE
+      )
+    )
+  }
+
+  dates <- trimws(as.character(unlist(exercise_dates)))
+  dates <- dates[nzchar(dates)]
+
+  if (!length(dates)) {
+    stop("exercise_dates must contain at least one date.", call. = FALSE)
+  }
+
+  as.character(as.Date(dates))
+}
+
+.qlg_interest_option_raw_field <- function(
+    trade,
+    names,
+    default = NULL
+) {
+  for (nm in names) {
+    value <- qlg_trade_value(
+      trade = trade,
+      name = nm,
+      default = NULL
+    )
+
+    if (!is.null(value)) {
+      return(value)
+    }
+  }
+
+  default
+}
