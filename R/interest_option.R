@@ -511,3 +511,116 @@ qlg_make_interest_option_from_trade <- function(
 .qlg_interest_option_token <- function(x) {
   tolower(gsub("[^A-Za-z0-9]", "", as.character(x[[1]])))
 }
+#' Make a Hull-White one-factor short-rate model
+#'
+#' @param term_structure Optional QuantLib yield term structure handle.
+#' @param valuation_date Evaluation date used when term_structure is NULL.
+#' @param rate Flat rate used when term_structure is NULL.
+#' @param a Hull-White mean reversion.
+#' @param sigma Hull-White volatility.
+#' @param day_counter QuantLib day counter.
+#'
+#' @return QuantLib HullWhite model object.
+#' @export
+qlg_hull_white_model <- function(
+    term_structure = NULL,
+    valuation_date = qlg_eval_date_get(),
+    rate = 0.03,
+    a = 0.03,
+    sigma = 0.01,
+    day_counter = QuantLib::Actual365Fixed()
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  if (is.null(term_structure)) {
+    term_structure <- .qlg_interest_option_flat_curve(
+      valuation_date = valuation_date,
+      rate = rate,
+      day_counter = day_counter
+    )
+  }
+
+  QuantLib::HullWhite__SWIG_0(
+    term_structure,
+    as.numeric(a),
+    as.numeric(sigma)
+  )
+}
+
+#' Make a Hull-White cap/floor pricing engine
+#'
+#' @param term_structure Optional QuantLib yield term structure handle.
+#' @param valuation_date Evaluation date used when term_structure is NULL.
+#' @param rate Flat rate used when term_structure is NULL.
+#' @param a Hull-White mean reversion.
+#' @param sigma Hull-White volatility.
+#' @param method Pricing method. Use "analytic" or "tree".
+#' @param time_steps Number of tree time steps when method = "tree".
+#' @param day_counter QuantLib day counter.
+#'
+#' @return QuantLib cap/floor pricing engine.
+#' @export
+qlg_hull_white_cap_floor_engine <- function(
+    term_structure = NULL,
+    valuation_date = qlg_eval_date_get(),
+    rate = 0.03,
+    a = 0.03,
+    sigma = 0.01,
+    method = c("analytic", "tree"),
+    time_steps = 60L,
+    day_counter = QuantLib::Actual365Fixed()
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  method <- match.arg(method)
+
+  if (is.null(term_structure)) {
+    term_structure <- .qlg_interest_option_flat_curve(
+      valuation_date = valuation_date,
+      rate = rate,
+      day_counter = day_counter
+    )
+  }
+
+  model <- qlg_hull_white_model(
+    term_structure = term_structure,
+    a = a,
+    sigma = sigma
+  )
+
+  if (identical(method, "analytic")) {
+    return(
+      QuantLib::AnalyticCapFloorEngine__SWIG_0(
+        model,
+        term_structure
+      )
+    )
+  }
+
+  QuantLib::TreeCapFloorEngine__SWIG_0(
+    model,
+    as.integer(time_steps),
+    term_structure
+  )
+}
+
+.qlg_interest_option_flat_curve <- function(
+    valuation_date,
+    rate,
+    day_counter = QuantLib::Actual365Fixed()
+) {
+  valuation_date <- as.character(as.Date(valuation_date))
+  qlg_eval_date(valuation_date)
+
+  eval_date <- qlg_date(valuation_date)
+
+  QuantLib::YieldTermStructureHandle(
+    QuantLib::FlatForward(
+      eval_date,
+      as.numeric(rate),
+      day_counter
+    )
+  )
+}
