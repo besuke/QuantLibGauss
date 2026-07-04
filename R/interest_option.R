@@ -624,3 +624,162 @@ qlg_hull_white_cap_floor_engine <- function(
     )
   )
 }
+#' Make a Hull-White swaption pricing engine
+#'
+#' @param term_structure Optional QuantLib yield term structure handle.
+#' @param valuation_date Evaluation date used when term_structure is NULL.
+#' @param rate Flat rate used when term_structure is NULL.
+#' @param a Hull-White mean reversion.
+#' @param sigma Hull-White volatility.
+#' @param method Pricing method. Use "jamshidian" or "tree".
+#' @param time_steps Number of tree time steps when method = "tree".
+#' @param day_counter QuantLib day counter.
+#'
+#' @return QuantLib swaption pricing engine.
+#' @export
+qlg_hull_white_swaption_engine <- function(
+    term_structure = NULL,
+    valuation_date = qlg_eval_date_get(),
+    rate = 0.03,
+    a = 0.03,
+    sigma = 0.01,
+    method = c("jamshidian", "tree"),
+    time_steps = 60L,
+    day_counter = QuantLib::Actual365Fixed()
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  method <- match.arg(method)
+
+  if (is.null(term_structure)) {
+    term_structure <- .qlg_interest_option_flat_curve(
+      valuation_date = valuation_date,
+      rate = rate,
+      day_counter = day_counter
+    )
+  }
+
+  model <- qlg_hull_white_model(
+    term_structure = term_structure,
+    a = a,
+    sigma = sigma
+  )
+
+  if (identical(method, "jamshidian")) {
+    return(
+      QuantLib::JamshidianSwaptionEngine__SWIG_0(
+        model,
+        term_structure
+      )
+    )
+  }
+
+  QuantLib::TreeSwaptionEngine__SWIG_0(
+    model,
+    as.integer(time_steps),
+    term_structure
+  )
+}
+
+#' Make a QuantLib swaption
+#'
+#' @param underlying_swap QuantLib VanillaSwap object.
+#' @param exercise_date Swaption exercise date.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib Swaption object.
+#' @export
+qlg_make_swaption <- function(
+    underlying_swap,
+    exercise_date,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  exercise <- QuantLib::EuropeanExercise(
+    qlg_date(as.character(as.Date(exercise_date)))
+  )
+
+  swaption <- QuantLib::Swaption__SWIG_2(
+    underlying_swap,
+    exercise
+  )
+
+  if (!is.null(pricing_engine)) {
+    QuantLib::Instrument_setPricingEngine(
+      swaption,
+      pricing_engine
+    )
+  }
+
+  swaption
+}
+
+#' Calculate swaption NPV
+#'
+#' @param swaption QuantLib Swaption object.
+#'
+#' @return Numeric NPV.
+#' @export
+qlg_swaption_npv <- function(swaption) {
+  .qlg_swaption_value(
+    swaption,
+    "Instrument_NPV"
+  )
+}
+
+#' Calculate swaption vega
+#'
+#' @param swaption QuantLib Swaption object.
+#'
+#' @return Numeric vega if available.
+#' @export
+qlg_swaption_vega <- function(swaption) {
+  .qlg_swaption_value(
+    swaption,
+    "Swaption_vega"
+  )
+}
+
+#' Calculate swaption annuity
+#'
+#' @param swaption QuantLib Swaption object.
+#'
+#' @return Numeric annuity if available.
+#' @export
+qlg_swaption_annuity <- function(swaption) {
+  .qlg_swaption_value(
+    swaption,
+    "Swaption_annuity"
+  )
+}
+
+#' Summarise a swaption
+#'
+#' @param swaption QuantLib Swaption object.
+#'
+#' @return A tibble with swaption analytics.
+#' @export
+qlg_swaption_summary <- function(swaption) {
+  requireNamespace("tibble", quietly = TRUE)
+
+  tibble::tibble(
+    metric = c("npv", "vega", "annuity"),
+    value = c(
+      qlg_swaption_npv(swaption),
+      qlg_swaption_vega(swaption),
+      qlg_swaption_annuity(swaption)
+    )
+  )
+}
+
+.qlg_swaption_value <- function(swaption, fun_name) {
+  out <- tryCatch(
+    .qlg_quantlib_fun(fun_name)(swaption),
+    error = function(e) NA_real_
+  )
+
+  as.numeric(out)
+}
