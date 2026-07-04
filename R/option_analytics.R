@@ -798,3 +798,138 @@ qlg_make_american_option_from_trade <- function(
     pricing_engine = pricing_engine
   )
 }
+#' Make an option from trade data
+#'
+#' This is a generic option trade dispatcher. It creates a European,
+#' American, or barrier option depending on the trade fields.
+#'
+#' @param trade A one-row data frame containing option trade fields.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return QuantLib option object.
+#' @export
+qlg_make_option_from_trade <- function(
+    trade,
+    pricing_engine = NULL
+) {
+  qlg_use_quantlib()
+
+  if (!is.data.frame(trade) || nrow(trade) != 1) {
+    stop("trade must be a one-row data frame.", call. = FALSE)
+  }
+
+  if (.qlg_option_trade_is_barrier(trade)) {
+    return(
+      qlg_make_barrier_option_from_trade(
+        trade = trade,
+        pricing_engine = pricing_engine
+      )
+    )
+  }
+
+  style <- .qlg_option_trade_field(
+    trade = trade,
+    names = c("exercise_style", "option_style", "style"),
+    default = "european"
+  )
+
+  style <- .qlg_option_trade_token(style)
+
+  if (style %in% c("american", "am")) {
+    return(
+      qlg_make_american_option_from_trade(
+        trade = trade,
+        pricing_engine = pricing_engine
+      )
+    )
+  }
+
+  if (style %in% c("european", "euro", "eu")) {
+    return(
+      qlg_make_european_option_from_trade(
+        trade = trade,
+        pricing_engine = pricing_engine
+      )
+    )
+  }
+
+  stop(
+    "Unsupported option style: ",
+    style,
+    ". Use 'european' or 'american', or provide barrier fields.",
+    call. = FALSE
+  )
+}
+
+#' Summarise an option from trade data
+#'
+#' @param trade A one-row data frame containing option trade fields.
+#' @param pricing_engine Optional QuantLib pricing engine.
+#'
+#' @return A tibble with option value and Greeks where available.
+#' @export
+qlg_option_summary_from_trade <- function(
+    trade,
+    pricing_engine = NULL
+) {
+  option <- qlg_make_option_from_trade(
+    trade = trade,
+    pricing_engine = pricing_engine
+  )
+
+  qlg_option_summary(option)
+}
+
+.qlg_option_trade_is_barrier <- function(trade) {
+  barrier <- qlg_trade_value(
+    trade = trade,
+    name = "barrier",
+    default = NULL
+  )
+
+  barrier_type <- qlg_trade_value(
+    trade = trade,
+    name = "barrier_type",
+    default = NULL
+  )
+
+  product <- .qlg_option_trade_field(
+    trade = trade,
+    names = c("product", "product_type", "instrument_type", "trade_type"),
+    default = ""
+  )
+
+  product <- .qlg_option_trade_token(product)
+
+  !is.null(barrier) ||
+    !is.null(barrier_type) ||
+    grepl("barrier", product, fixed = TRUE)
+}
+
+.qlg_option_trade_field <- function(
+    trade,
+    names,
+    default = NULL
+) {
+  for (nm in names) {
+    value <- qlg_trade_value(
+      trade = trade,
+      name = nm,
+      default = NULL
+    )
+
+    if (!is.null(value) && !is.na(value[[1]])) {
+      value <- as.character(value[[1]])
+
+      if (nzchar(trimws(value))) {
+        return(value)
+      }
+    }
+  }
+
+  default
+}
+
+.qlg_option_trade_token <- function(x) {
+  tolower(gsub("[^A-Za-z0-9]", "", as.character(x[[1]])))
+}
