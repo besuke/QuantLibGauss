@@ -1090,3 +1090,35 @@ qlg_make_bermudan_swaption_from_trade <- function(
 
   default
 }
+#' Calculate Hull-White convexity bias
+#'
+#' This is a thin wrapper around QuantLib HullWhite_convexityBias().
+#'
+#' @param future_price Futures price.
+#' @param t Time to futures maturity in years.
+#' @param T Time to underlying maturity in years.
+#' @param sigma Hull-White volatility.
+#' @param a Hull-White mean reversion.
+#'
+#' @return Numeric convexity bias.
+#' @export
+qlg_hull_white_convexity_bias <- function(
+    future_price,
+    t,
+    T,
+    sigma = 0.01,
+    a = 0.03
+) {
+  qlg_use_quantlib()
+  requireNamespace("QuantLib", quietly = TRUE)
+
+  as.numeric(
+    QuantLib::HullWhite_convexityBias(
+      as.numeric(future_price),
+      as.numeric(t),
+      as.numeric(T),
+      as.numeric(sigma),
+      as.numeric(a)
+    )
+  )
+}
