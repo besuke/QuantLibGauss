@@ -2,16 +2,18 @@
 % Please edit documentation in R/date_period_utils.R
 \name{qlg_period}
 \alias{qlg_period}
-\title{Build a QuantLib Period from tenor string}
+\title{Build a QuantLib Period}
 \usage{
-qlg_period(x)
+qlg_period(x = 1, unit = NULL)
 }
 \arguments{
 \item{x}{Tenor string such as 1D, 1W, 3M, 18M, or 2Y.}
+
+\item{unit}{Optional unit when x is numeric.}
 }
 \value{
 A QuantLib Period object.
 }
 \description{
-Build a QuantLib Period from tenor string
+Build a QuantLib Period
 }

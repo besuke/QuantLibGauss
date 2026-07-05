@@ -8,6 +8,24 @@
   qlg_date(x)
 }
 
+#' Convert QuantLib object to character
+#'
+#' @param x Object to print.
+#'
+#' @return Character scalar.
+#' @export
+qlg_chr <- function(x) {
+  tryCatch(
+    x$`__str__`(),
+    error = function(e1) {
+      tryCatch(
+        as.character(x),
+        error = function(e2) "<unprintable>"
+      )
+    }
+  )
+}
+
 #' Set QuantLib evaluation date
 #'
 #' @param eval_date ISO date string, R Date, or QuantLib Date.
@@ -37,13 +55,37 @@ qlg_advance_days <- function(calendar_obj, date_obj, n_days) {
   )
 }
 
-#' Build a QuantLib Period from tenor string
+#' Build a QuantLib Period
 #'
 #' @param x Tenor string such as 1D, 1W, 3M, 18M, or 2Y.
+#' @param unit Optional unit when x is numeric.
 #'
 #' @return A QuantLib Period object.
 #' @export
-qlg_period <- function(x) {
+qlg_period <- function(x = 1, unit = NULL) {
+  if (!is.null(unit)) {
+    unit <- tolower(as.character(unit)[1])
+    n <- as.integer(x)
+
+    if (unit %in% c("d", "day", "days")) {
+      return(qlg_period_days(n))
+    }
+
+    if (unit %in% c("w", "week", "weeks")) {
+      return(qlg_period_weeks(n))
+    }
+
+    if (unit %in% c("m", "month", "months")) {
+      return(qlg_period_months(n))
+    }
+
+    if (unit %in% c("y", "year", "years")) {
+      return(qlg_period_years(n))
+    }
+
+    stop("Unsupported period unit: ", unit, call. = FALSE)
+  }
+
   if (length(x) != 1 || is.na(x)) {
     stop("tenor must be a single non-NA string", call. = FALSE)
   }
@@ -114,24 +156,6 @@ qlg_period_years <- function(n) {
   QuantLib::Period(as.integer(n), "Years")
 }
 
-#' Convert QuantLib object to character
-#'
-#' @param x Object to print.
-#'
-#' @return Character scalar.
-#' @export
-qlg_chr <- function(x) {
-  tryCatch(
-    x$`__str__`(),
-    error = function(e1) {
-      tryCatch(
-        as.character(x),
-        error = function(e2) "<unprintable>"
-      )
-    }
-  )
-}
-
 #' Build and print a QuantLib Period
 #'
 #' @param x Tenor string such as 1D, 1W, 3M, or 2Y.
@@ -140,80 +164,4 @@ qlg_chr <- function(x) {
 #' @export
 qlg_period_chr <- function(x) {
   qlg_chr(qlg_period(x))
-}
-
-#' Extract a date from a QuantLib schedule
-#'
-#' @param schedule QuantLib Schedule object.
-#' @param i_one_based One-based date index.
-#'
-#' @return A QuantLib Date object, or NULL if extraction fails.
-#' @export
-qlg_schedule_date_at <- function(schedule, i_one_based) {
-  idx0 <- as.integer(i_one_based - 1L)
-
-  out <- tryCatch(
-    schedule$date(idx0),
-    error = function(e) NULL
-  )
-
-  if (!is.null(out)) {
-    return(out)
-  }
-
-  out <- tryCatch(
-    schedule$dates()[[as.integer(i_one_based)]],
-    error = function(e) NULL
-  )
-
-  if (!is.null(out)) {
-    return(out)
-  }
-
-  tryCatch(
-    schedule[[as.integer(i_one_based)]],
-    error = function(e) NULL
-  )
-}
-
-#' Extract a schedule date as local R Date
-#'
-#' @param schedule QuantLib Schedule object.
-#' @param i_one_based One-based date index.
-#'
-#' @return R Date, or NA if extraction fails.
-#' @export
-qlg_schedule_date_at_local <- function(schedule, i_one_based) {
-  d <- qlg_schedule_date_at(schedule, i_one_based)
-
-  if (is.null(d)) {
-    return(as.Date(NA))
-  }
-
-  as.Date(qlg_iso(d))
-}
-
-#' Build a table of QuantLib schedule dates
-#'
-#' @param schedule QuantLib Schedule object.
-#'
-#' @return A tibble with schedule_date.
-#' @export
-qlg_schedule_dates <- function(schedule) {
-  n <- tryCatch(
-    schedule$size(),
-    error = function(e) NA_integer_
-  )
-
-  if (is.na(n) || n <= 0) {
-    return(tibble::tibble(schedule_date = character()))
-  }
-
-  tibble::tibble(
-    schedule_date = vapply(
-      seq_len(n),
-      function(i) qlg_iso(qlg_schedule_date_at(schedule, i)),
-      character(1)
-    )
-  )
 }
