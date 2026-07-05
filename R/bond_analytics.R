@@ -10,23 +10,23 @@ qlg_fixed_rate_bond <- function(
   face_amount = 100,
   settlement_days = 3
 ) {
-  schedule <- Schedule(
+  schedule <- QuantLib::Schedule(
     qlg_date(issue_date),
     qlg_date(maturity_date),
-    Period("Semiannual"),
-    UnitedStates("GovernmentBond"),
+    QuantLib::Period("Semiannual"),
+    QuantLib::UnitedStates("GovernmentBond"),
     "Unadjusted",
     "Unadjusted",
-    copyToR(DateGeneration(), "Backward"),
+    QuantLib::copyToR(QuantLib::DateGeneration(), "Backward"),
     FALSE
   )
 
-  FixedRateBond(
+  QuantLib::FixedRateBond(
     settlement_days,
     face_amount,
     schedule,
     coupon_rate,
-    ActualActual("Bond"),
+    QuantLib::ActualActual("Bond"),
     "ModifiedFollowing",
     100.0,
     qlg_date(issue_date)
