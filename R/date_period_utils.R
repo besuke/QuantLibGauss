@@ -165,3 +165,79 @@ qlg_period_years <- function(n) {
 qlg_period_chr <- function(x) {
   qlg_chr(qlg_period(x))
 }
+
+#' Extract a date from a QuantLib schedule
+#'
+#' @param schedule QuantLib Schedule object.
+#' @param i_one_based One-based date index.
+#'
+#' @return A QuantLib Date object, or NULL if extraction fails.
+#' @export
+qlg_schedule_date_at <- function(schedule, i_one_based) {
+  idx0 <- as.integer(i_one_based - 1L)
+
+  out <- tryCatch(
+    schedule$date(idx0),
+    error = function(e) NULL
+  )
+
+  if (!is.null(out)) {
+    return(out)
+  }
+
+  out <- tryCatch(
+    schedule$dates()[[as.integer(i_one_based)]],
+    error = function(e) NULL
+  )
+
+  if (!is.null(out)) {
+    return(out)
+  }
+
+  tryCatch(
+    schedule[[as.integer(i_one_based)]],
+    error = function(e) NULL
+  )
+}
+
+#' Extract a schedule date as local R Date
+#'
+#' @param schedule QuantLib Schedule object.
+#' @param i_one_based One-based date index.
+#'
+#' @return R Date, or NA if extraction fails.
+#' @export
+qlg_schedule_date_at_local <- function(schedule, i_one_based) {
+  d <- qlg_schedule_date_at(schedule, i_one_based)
+
+  if (is.null(d)) {
+    return(as.Date(NA))
+  }
+
+  as.Date(qlg_iso(d))
+}
+
+#' Build a table of QuantLib schedule dates
+#'
+#' @param schedule QuantLib Schedule object.
+#'
+#' @return A tibble with schedule_date.
+#' @export
+qlg_schedule_dates <- function(schedule) {
+  n <- tryCatch(
+    schedule$size(),
+    error = function(e) NA_integer_
+  )
+
+  if (is.na(n) || n <= 0) {
+    return(tibble::tibble(schedule_date = character()))
+  }
+
+  tibble::tibble(
+    schedule_date = vapply(
+      seq_len(n),
+      function(i) qlg_iso(qlg_schedule_date_at(schedule, i)),
+      character(1)
+    )
+  )
+}
