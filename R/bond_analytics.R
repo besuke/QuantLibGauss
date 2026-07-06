@@ -1241,3 +1241,315 @@ qlg_bond_npv_with_zspread <- function(
     )
   )
 }
+
+#' Hand-calculated bond risk measures
+#'
+#' Educational helper for checking BPV, duration, convexity, and a
+#' delta-gamma price approximation from bumped dirty prices.
+#'
+#' @param bond QuantLib bond object.
+#' @param yield Yield to maturity.
+#' @param dirty_price Dirty price at the base yield.
+#' @param modified_duration Modified duration.
+#' @param convexity Convexity.
+#' @param day_counter QuantLib day counter.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#'
+#' @return A tibble with hand-calculated risk measures.
+#' @export
+qlg_bond_risk_handcalc <- function(
+    bond,
+    yield,
+    dirty_price,
+    modified_duration,
+    convexity,
+    day_counter = QuantLib::Actual360(),
+    compounding = "Compounded",
+    frequency = "Annual"
+) {
+  price_up_1bp <- tryCatch(
+    bond$dirtyPrice(yield + 0.0001, day_counter, compounding, frequency),
+    error = function(e) NA_real_
+  )
+
+  price_down_1bp <- tryCatch(
+    bond$dirtyPrice(yield - 0.0001, day_counter, compounding, frequency),
+    error = function(e) NA_real_
+  )
+
+  bpv_hand <- (price_up_1bp - price_down_1bp) / 2
+  modified_duration_hand <- -bpv_hand * 100 / dirty_price
+
+  convexity_hand <- (
+    (price_up_1bp - dirty_price) -
+      (dirty_price - price_down_1bp)
+  ) * 10000 / dirty_price
+
+  price_up_100bp <- tryCatch(
+    bond$dirtyPrice(yield + 0.01, day_counter, compounding, frequency),
+    error = function(e) NA_real_
+  )
+
+  delta_approx <- -modified_duration / 100 * dirty_price
+  gamma_approx <- convexity / 10000 * dirty_price
+  price_approx_delta_gamma <- dirty_price + delta_approx + 0.5 * gamma_approx
+
+  tibble::tibble(
+    metric = c(
+      "bpv_hand",
+      "modified_duration_hand",
+      "convexity_hand",
+      "price_up_100bp",
+      "price_approx_delta_gamma"
+    ),
+    value = c(
+      bpv_hand,
+      modified_duration_hand,
+      convexity_hand,
+      price_up_100bp,
+      price_approx_delta_gamma
+    )
+  )
+}
+
+#' Build a US Treasury-style fixed-rate bond
+#'
+#' @param effective_date Issue/effective date.
+#' @param maturity_date Maturity date.
+#' @param coupon_rate_pct Coupon rate in percent.
+#' @param face_amount Face amount.
+#' @param settlement_days Settlement days.
+#' @param calendar QuantLib calendar.
+#' @param day_counter QuantLib day counter.
+#'
+#' @return A list containing the bond, schedule, and input metadata.
+#' @export
+qlg_us_treasury_bond <- function(
+    effective_date,
+    maturity_date,
+    coupon_rate_pct,
+    face_amount = 100,
+    settlement_days = 1L,
+    calendar = QuantLib::UnitedStates("GovernmentBond"),
+    day_counter = QuantLib::ActualActual("Bond")
+) {
+  effective_date <- qlg_date(effective_date)
+  maturity_date <- qlg_date(maturity_date)
+
+  schedule <- QuantLib::Schedule(
+    effective_date,
+    maturity_date,
+    qlg_period_months(6),
+    calendar,
+    "Unadjusted",
+    "Unadjusted",
+    "Backward",
+    FALSE
+  )
+
+  bond <- QuantLib::FixedRateBond(
+    as.integer(settlement_days),
+    face_amount,
+    schedule,
+    c(coupon_rate_pct / 100),
+    day_counter
+  )
+
+  list(
+    bond = bond,
+    schedule = schedule,
+    effective_date = effective_date,
+    maturity_date = maturity_date,
+    coupon_rate_pct = coupon_rate_pct,
+    face_amount = face_amount
+  )
+}
+
+#' Calculate one-row gross basis measures for a deliverable Treasury bond
+#'
+#' @param issue_date Issue date.
+#' @param maturity_date Maturity date.
+#' @param coupon_rate_pct Coupon rate in percent.
+#' @param conversion_factor Futures conversion factor.
+#' @param market_yield_pct Market yield in percent.
+#' @param settlement_date Settlement date.
+#' @param futures_price Futures price.
+#' @param settlement_days Settlement days.
+#' @param calendar QuantLib calendar.
+#' @param day_counter QuantLib day counter.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#'
+#' @return A one-row tibble with gross basis inputs and measures.
+#' @export
+qlg_bond_futures_gross_basis_row <- function(
+    issue_date,
+    maturity_date,
+    coupon_rate_pct,
+    conversion_factor,
+    market_yield_pct,
+    settlement_date,
+    futures_price,
+    settlement_days = 1L,
+    calendar = QuantLib::UnitedStates("GovernmentBond"),
+    day_counter = QuantLib::ActualActual("Bond"),
+    compounding = "Compounded",
+    frequency = "Semiannual"
+) {
+  settlement_date_ql <- qlg_date(settlement_date)
+
+  bond_bundle <- qlg_us_treasury_bond(
+    effective_date = issue_date,
+    maturity_date = maturity_date,
+    coupon_rate_pct = coupon_rate_pct,
+    settlement_days = settlement_days,
+    calendar = calendar,
+    day_counter = day_counter
+  )
+
+  bond_obj <- bond_bundle$bond
+  ytm <- market_yield_pct / 100
+
+  bpv_value <- tryCatch(
+    qlg_bond_pv01(
+      bond = bond_obj,
+      ytm = ytm,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency
+    ),
+    error = function(e) NA_real_
+  )
+
+  clean_price <- tryCatch(
+    qlg_bond_price_from_yield(
+      bond = bond_obj,
+      ytm = ytm,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency,
+      settlement_date = settlement_date_ql
+    ),
+    error = function(e) tryCatch(
+      bond_obj$cleanPrice(
+        ytm,
+        day_counter,
+        compounding,
+        frequency,
+        settlement_date_ql
+      ),
+      error = function(e2) NA_real_
+    )
+  )
+
+  dirty_price <- tryCatch(
+    bond_obj$dirtyPrice(
+      ytm,
+      day_counter,
+      compounding,
+      frequency,
+      settlement_date_ql
+    ),
+    error = function(e) tryCatch(
+      bond_obj$dirtyPrice(ytm, day_counter, compounding, frequency),
+      error = function(e2) {
+        accrued <- tryCatch(
+          bond_obj$accruedAmount(settlement_date_ql),
+          error = function(e3) tryCatch(bond_obj$accruedAmount(), error = function(e4) NA_real_)
+        )
+
+        if (is.na(clean_price) || is.na(accrued)) {
+          NA_real_
+        } else {
+          clean_price + accrued
+        }
+      }
+    )
+  )
+
+  gross_basis <- clean_price - futures_price * conversion_factor
+
+  tibble::tibble(
+    issue_date = qlg_iso(bond_bundle$effective_date),
+    maturity = qlg_iso(bond_obj$maturityDate()),
+    coupon = tryCatch(bond_obj$nextCouponRate(), error = function(e) coupon_rate_pct / 100),
+    yield_pct = market_yield_pct,
+    bpv = bpv_value,
+    clean_price = clean_price,
+    dirty_price = dirty_price,
+    conversion_factor = conversion_factor,
+    gross_basis = gross_basis,
+    bond_obj = list(bond_obj)
+  )
+}
+
+#' Calculate one-row net basis, carry, and implied repo measures
+#'
+#' @param bond_obj QuantLib bond object.
+#' @param conversion_factor Futures conversion factor.
+#' @param clean_price Clean price.
+#' @param dirty_price Dirty price.
+#' @param gross_basis Gross basis.
+#' @param settlement_date Settlement date.
+#' @param repo_end_date Repo end date.
+#' @param repo_rate Repo rate as a decimal.
+#' @param repo_day_counter QuantLib day counter for repo accrual.
+#' @param carry_day_counter QuantLib day counter for carry accrual.
+#' @param futures_price Futures price.
+#'
+#' @return A one-row tibble with carry, net basis, and implied repo.
+#' @export
+qlg_bond_futures_net_basis_row <- function(
+    bond_obj,
+    conversion_factor,
+    clean_price,
+    dirty_price,
+    gross_basis,
+    settlement_date,
+    repo_end_date,
+    repo_rate,
+    repo_day_counter = QuantLib::Actual360(),
+    carry_day_counter = QuantLib::Actual360(),
+    futures_price
+) {
+  settlement_date <- qlg_date(settlement_date)
+  repo_end_date <- qlg_date(repo_end_date)
+
+  accrued_start <- tryCatch(
+    bond_obj$accruedAmount(settlement_date),
+    error = function(e) tryCatch(bond_obj$accruedAmount(), error = function(e2) NA_real_)
+  )
+
+  accrued_end <- tryCatch(
+    bond_obj$accruedAmount(repo_end_date),
+    error = function(e) NA_real_
+  )
+
+  coupon_income <- accrued_end - accrued_start
+  repo_year_fraction <- repo_day_counter$yearFraction(settlement_date, repo_end_date)
+  repo_cost <- repo_rate * repo_year_fraction * dirty_price
+  carry <- coupon_income - repo_cost
+  net_basis <- gross_basis - carry
+  forward_price <- clean_price - carry
+
+  implied_repo <- if (is.na(repo_year_fraction) || repo_year_fraction == 0) {
+    NA_real_
+  } else {
+    (
+      (futures_price * conversion_factor + accrued_end) / dirty_price - 1
+    ) / repo_year_fraction
+  }
+
+  tibble::tibble(
+    accrued_start = accrued_start,
+    accrued_end = accrued_end,
+    coupon_income = coupon_income,
+    dirty_price = dirty_price,
+    repo_cost = repo_cost,
+    carry = carry,
+    net_basis = net_basis,
+    forward_price = forward_price,
+    implied_repo = implied_repo
+  )
+}
