@@ -905,3 +905,339 @@ qlg_bond_futures_bpv <- function(bond,
     contracts = contracts
   )
 }
+
+#' Bond yield from clean price
+#'
+#' Compatibility wrapper for examples that use an explicit clean-price name.
+#'
+#' @param bond QuantLib bond object.
+#' @param clean_price Clean price.
+#' @param day_counter QuantLib day counter.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#' @param settlement_date Optional settlement date.
+#'
+#' @return Numeric yield.
+#' @export
+qlg_bond_yield_from_clean_price <- function(
+    bond,
+    clean_price,
+    day_counter = QuantLib::Actual360(),
+    compounding = "Compounded",
+    frequency = "Annual",
+    settlement_date = NULL
+) {
+  qlg_bond_yield_from_price(
+    bond = bond,
+    clean_price = clean_price,
+    day_counter = day_counter,
+    compounding = compounding,
+    frequency = frequency,
+    settlement_date = settlement_date
+  )
+}
+
+#' Bond price measures from yield
+#'
+#' @param bond QuantLib bond object.
+#' @param yield Yield to maturity.
+#' @param day_counter QuantLib day counter.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#' @param settlement_date Optional settlement date.
+#' @param schedule Optional QuantLib schedule used to infer the previous coupon date.
+#'
+#' @return A tibble with price-related measures.
+#' @export
+qlg_bond_price_measures <- function(
+    bond,
+    yield,
+    day_counter = QuantLib::Actual360(),
+    compounding = "Compounded",
+    frequency = "Annual",
+    settlement_date = NULL,
+    schedule = NULL
+) {
+  accrued_amount <- tryCatch(
+    qlg_bond_accrued(bond),
+    error = function(e) tryCatch(bond$accruedAmount(), error = function(e) NA_real_)
+  )
+
+  clean_price <- tryCatch(
+    qlg_bond_price_from_yield(
+      bond = bond,
+      ytm = yield,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency,
+      settlement_date = settlement_date
+    ),
+    error = function(e) tryCatch(
+      bond$cleanPrice(yield, day_counter, compounding, frequency),
+      error = function(e) NA_real_
+    )
+  )
+
+  dirty_price <- tryCatch(
+    bond$dirtyPrice(yield, day_counter, compounding, frequency),
+    error = function(e) {
+      if (is.na(clean_price) || is.na(accrued_amount)) {
+        NA_real_
+      } else {
+        clean_price + accrued_amount
+      }
+    }
+  )
+
+  previous_coupon_date <- NULL
+  accrued_days <- NA_real_
+
+  if (!is.null(settlement_date) && !is.null(schedule)) {
+    settlement_date_ql <- qlg_date(settlement_date)
+
+    schedule_dates <- tryCatch(
+      qlg_schedule_dates(schedule),
+      error = function(e) NULL
+    )
+
+    if (!is.null(schedule_dates) && length(schedule_dates) > 0) {
+      schedule_dates_as_date <- as.Date(vapply(
+        schedule_dates,
+        function(x) qlg_iso(x),
+        character(1)
+      ))
+
+      settlement_as_date <- as.Date(qlg_iso(settlement_date_ql))
+      prev_idx <- which(schedule_dates_as_date <= settlement_as_date)
+
+      if (length(prev_idx) > 0) {
+        previous_coupon_date <- schedule_dates[[max(prev_idx)]]
+      }
+    }
+
+    if (!is.null(previous_coupon_date)) {
+      accrued_days <- tryCatch(
+        day_counter$dayCount(previous_coupon_date, settlement_date_ql),
+        error = function(e) NA_real_
+      )
+    }
+  }
+
+  tibble::tibble(
+    metric = c(
+      "settlement_date",
+      "previous_coupon_date",
+      "accrued_days",
+      "accrued_amount",
+      "clean_price",
+      "dirty_price"
+    ),
+    value = list(
+      if (!is.null(settlement_date)) as.Date(qlg_iso(qlg_date(settlement_date))) else NA,
+      if (!is.null(previous_coupon_date)) as.Date(qlg_iso(previous_coupon_date)) else NA,
+      accrued_days,
+      accrued_amount,
+      clean_price,
+      dirty_price
+    )
+  )
+}
+
+#' Bond risk measures from yield
+#'
+#' @param bond QuantLib bond object.
+#' @param yield Yield to maturity.
+#' @param day_counter QuantLib day counter.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#'
+#' @return A tibble with duration, BPV/PV01, and convexity measures.
+#' @export
+qlg_bond_risk_measures <- function(
+    bond,
+    yield,
+    day_counter = QuantLib::Actual360(),
+    compounding = "Compounded",
+    frequency = "Annual"
+) {
+  modified_duration <- tryCatch(
+    qlg_bond_duration(
+      bond = bond,
+      ytm = yield,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency
+    ),
+    error = function(e) NA_real_
+  )
+
+  bpv <- tryCatch(
+    qlg_bond_pv01(
+      bond = bond,
+      ytm = yield,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency
+    ),
+    error = function(e) NA_real_
+  )
+
+  dv01 <- tryCatch(
+    qlg_bond_dv01(
+      bond = bond,
+      ytm = yield,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency
+    ),
+    error = function(e) NA_real_
+  )
+
+  convexity <- tryCatch(
+    qlg_bond_convexity(
+      bond = bond,
+      ytm = yield,
+      day_counter = day_counter,
+      compounding = compounding,
+      frequency = frequency
+    ),
+    error = function(e) NA_real_
+  )
+
+  tibble::tibble(
+    metric = c(
+      "modified_duration",
+      "bpv",
+      "dv01",
+      "convexity"
+    ),
+    value = c(
+      modified_duration,
+      bpv,
+      dv01,
+      convexity
+    )
+  )
+}
+
+#' Build a flat-forward yield-curve handle for bond pricing
+#'
+#' @param settlement_date Settlement date.
+#' @param rate Flat rate.
+#' @param day_counter QuantLib day counter.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#'
+#' @return QuantLib YieldTermStructureHandle.
+#' @export
+qlg_bond_flat_forward_handle <- function(
+    settlement_date,
+    rate,
+    day_counter = QuantLib::Actual360(),
+    compounding = "Compounded",
+    frequency = "Annual"
+) {
+  settlement_date <- qlg_date(settlement_date)
+
+  curve_obj <- QuantLib::FlatForward(
+    settlement_date,
+    qlg_quote_handle(rate),
+    day_counter,
+    compounding,
+    frequency
+  )
+
+  QuantLib::YieldTermStructureHandle(curve_obj)
+}
+
+#' Bond NPV with a curve handle
+#'
+#' @param bond QuantLib bond object.
+#' @param curve_handle QuantLib YieldTermStructureHandle.
+#'
+#' @return Numeric NPV.
+#' @export
+qlg_bond_npv_with_curve <- function(
+    bond,
+    curve_handle
+) {
+  engine <- QuantLib::DiscountingBondEngine(curve_handle)
+  bond$setPricingEngine(engine)
+
+  tryCatch(
+    bond$NPV(),
+    error = function(e) QuantLib::Instrument_NPV(bond)
+  )
+}
+
+#' Bond NPV with a flat yield
+#'
+#' @param bond QuantLib bond object.
+#' @param settlement_date Settlement date.
+#' @param rate Flat rate.
+#' @param day_counter QuantLib day counter.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#'
+#' @return Numeric NPV.
+#' @export
+qlg_bond_npv_with_flat_yield <- function(
+    bond,
+    settlement_date,
+    rate,
+    day_counter = QuantLib::Actual360(),
+    compounding = "Compounded",
+    frequency = "Annual"
+) {
+  curve_handle <- qlg_bond_flat_forward_handle(
+    settlement_date = settlement_date,
+    rate = rate,
+    day_counter = day_counter,
+    compounding = compounding,
+    frequency = frequency
+  )
+
+  qlg_bond_npv_with_curve(
+    bond = bond,
+    curve_handle = curve_handle
+  )
+}
+
+#' Bond NPV with a z-spreaded curve
+#'
+#' @param bond QuantLib bond object.
+#' @param base_curve_handle Base QuantLib YieldTermStructureHandle.
+#' @param z_spread Z-spread.
+#' @param compounding QuantLib compounding convention or supported string.
+#' @param frequency QuantLib frequency convention or supported string.
+#' @param day_counter QuantLib day counter.
+#'
+#' @return A list with spread curve, spread curve handle, and NPV.
+#' @export
+qlg_bond_npv_with_zspread <- function(
+    bond,
+    base_curve_handle,
+    z_spread,
+    compounding = "Compounded",
+    frequency = "Annual",
+    day_counter = QuantLib::Actual360()
+) {
+  spread_curve <- QuantLib::ZeroSpreadedTermStructure(
+    base_curve_handle,
+    qlg_quote_handle(z_spread),
+    compounding,
+    frequency,
+    day_counter
+  )
+
+  spread_curve_handle <- QuantLib::YieldTermStructureHandle(spread_curve)
+
+  list(
+    spread_curve = spread_curve,
+    spread_curve_handle = spread_curve_handle,
+    npv = qlg_bond_npv_with_curve(
+      bond = bond,
+      curve_handle = spread_curve_handle
+    )
+  )
+}
