@@ -9,7 +9,17 @@ qlg_fixed_rate_bond(
   maturity_date = "2017-05-15",
   coupon_rate = 0.045,
   face_amount = 100,
-  settlement_days = 3
+  settlement_days = 3,
+  frequency = QuantLib::Period("Semiannual"),
+  calendar = QuantLib::UnitedStates("GovernmentBond"),
+  accrual_day_counter = QuantLib::ActualActual("Bond"),
+  payment_convention = "ModifiedFollowing",
+  schedule_convention = "Unadjusted",
+  maturity_convention = "Unadjusted",
+  date_generation = "Backward",
+  end_of_month = FALSE,
+  redemption = 100,
+  schedule_frequency = frequency
 )
 }
 \description{
