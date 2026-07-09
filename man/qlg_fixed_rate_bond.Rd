@@ -2,7 +2,7 @@
 % Please edit documentation in R/bond_analytics.R
 \name{qlg_fixed_rate_bond}
 \alias{qlg_fixed_rate_bond}
-\title{Create Fixed Rate Bond}
+\title{Create a QuantLib fixed-rate bond}
 \usage{
 qlg_fixed_rate_bond(
   issue_date = "2007-05-15",
@@ -22,6 +22,40 @@ qlg_fixed_rate_bond(
   schedule_frequency = frequency
 )
 }
+\arguments{
+\item{issue_date}{Issue date as an ISO character string.}
+
+\item{maturity_date}{Maturity date as an ISO character string.}
+
+\item{coupon_rate}{Coupon rate as a decimal.}
+
+\item{face_amount}{Face amount / notional.}
+
+\item{settlement_days}{Settlement days.}
+
+\item{frequency}{QuantLib Period used for the coupon schedule.}
+
+\item{calendar}{QuantLib calendar used for the schedule.}
+
+\item{accrual_day_counter}{QuantLib day counter used for coupon accrual.}
+
+\item{payment_convention}{Payment convention for the bond.}
+
+\item{schedule_convention}{Schedule date adjustment convention.}
+
+\item{maturity_convention}{Maturity date adjustment convention.}
+
+\item{date_generation}{Date generation rule, for example "Backward".}
+
+\item{end_of_month}{End-of-month schedule flag.}
+
+\item{redemption}{Redemption amount.}
+
+\item{schedule_frequency}{Optional alias for frequency.}
+}
+\value{
+A QuantLib FixedRateBond object.
+}
 \description{
-Create Fixed Rate Bond
+This is the main QuantLibGauss fixed-rate bond constructor.
 }

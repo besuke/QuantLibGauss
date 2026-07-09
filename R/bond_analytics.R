@@ -1,24 +1,64 @@
 # bond_analytics.R
 
 
-#' Create Fixed Rate Bond
+#' Create a QuantLib fixed-rate bond
+#'
+#' This is the main QuantLibGauss fixed-rate bond constructor.
+#'
+#' @param issue_date Issue date as an ISO character string.
+#' @param maturity_date Maturity date as an ISO character string.
+#' @param coupon_rate Coupon rate as a decimal.
+#' @param face_amount Face amount / notional.
+#' @param settlement_days Settlement days.
+#' @param frequency QuantLib Period used for the coupon schedule.
+#' @param calendar QuantLib calendar used for the schedule.
+#' @param accrual_day_counter QuantLib day counter used for coupon accrual.
+#' @param payment_convention Payment convention for the bond.
+#' @param schedule_convention Schedule date adjustment convention.
+#' @param maturity_convention Maturity date adjustment convention.
+#' @param date_generation Date generation rule, for example "Backward".
+#' @param end_of_month End-of-month schedule flag.
+#' @param redemption Redemption amount.
+#' @param schedule_frequency Optional alias for frequency.
+#'
+#' @return A QuantLib FixedRateBond object.
 #' @export
 qlg_fixed_rate_bond <- function(
   issue_date = "2007-05-15",
   maturity_date = "2017-05-15",
   coupon_rate = 0.045,
   face_amount = 100,
-  settlement_days = 3
+  settlement_days = 3,
+  frequency = QuantLib::Period("Semiannual"),
+  calendar = QuantLib::UnitedStates("GovernmentBond"),
+  accrual_day_counter = QuantLib::ActualActual("Bond"),
+  payment_convention = "ModifiedFollowing",
+  schedule_convention = "Unadjusted",
+  maturity_convention = "Unadjusted",
+  date_generation = "Backward",
+  end_of_month = FALSE,
+  redemption = 100,
+  schedule_frequency = frequency
 ) {
+  issue_date_ql <- qlg_date(issue_date)
+  maturity_date_ql <- qlg_date(maturity_date)
+
+  if (is.character(date_generation)) {
+    date_generation <- QuantLib::copyToR(
+      QuantLib::DateGeneration(),
+      date_generation
+    )
+  }
+
   schedule <- QuantLib::Schedule(
-    qlg_date(issue_date),
-    qlg_date(maturity_date),
-    QuantLib::Period("Semiannual"),
-    QuantLib::UnitedStates("GovernmentBond"),
-    "Unadjusted",
-    "Unadjusted",
-    QuantLib::copyToR(QuantLib::DateGeneration(), "Backward"),
-    FALSE
+    issue_date_ql,
+    maturity_date_ql,
+    schedule_frequency,
+    calendar,
+    schedule_convention,
+    maturity_convention,
+    date_generation,
+    end_of_month
   )
 
   QuantLib::FixedRateBond(
@@ -26,10 +66,10 @@ qlg_fixed_rate_bond <- function(
     face_amount,
     schedule,
     coupon_rate,
-    QuantLib::ActualActual("Bond"),
-    "ModifiedFollowing",
-    100.0,
-    qlg_date(issue_date)
+    accrual_day_counter,
+    payment_convention,
+    redemption,
+    issue_date_ql
   )
 }
 
@@ -123,7 +163,7 @@ qlg_bond_convexity <- function(
 #' Bond Accrued Amount
 #' @export
 qlg_bond_accrued <- function(bond) {
-  Bond_accruedAmount(bond)
+  QuantLib::Bond_accruedAmount(bond)
 }
 
 
@@ -470,7 +510,7 @@ qlg_bond_settlement_info <- function(bond, as_of = qlg_eval_date_get()) {
   }
 
   accrued_amount <- tryCatch(
-    Bond_accruedAmount(bond),
+    QuantLib::Bond_accruedAmount(bond),
     error = function(e) {
       tryCatch(
         bond$accruedAmount(),
@@ -780,7 +820,7 @@ qlg_bond_summary <- function(
       Instrument_NPV(bond),
       Bond_cleanPrice(bond),
       Bond_dirtyPrice(bond),
-      Bond_accruedAmount(bond),
+      QuantLib::Bond_accruedAmount(bond),
       ytm,
       ytm * 10000,
       dur,
